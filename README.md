@@ -10,7 +10,7 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 |---|---|---|
 | `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `e3c57b5`) |
 | `swift/` — native Swift core | **real, tests green** | 9 tests, `swift test`; verifies the reference implementation's own signatures |
-| `kmp/` — extracted Kotlin core | **sources extracted, not yet building here** | the code is proven in `openbank-app`; its Gradle wiring in this repo is not done |
+| `kmp/` — extracted Kotlin core | **sources extracted, not yet building here** | extracted from `openbank-app` @ `db6e29f3d`, where its own suite is green; its Gradle wiring in *this* repo is not done |
 | BLE / GATT transport | **not started** | — |
 | UWB ranging | **not started** | — |
 | Android native packaging, React Native, Flutter | **not started** | — |
@@ -38,14 +38,18 @@ checked against.
 Building the second implementation surfaced two things neither side could see alone. Both are in
 [`KNOWN-DIVERGENCES.md`](KNOWN-DIVERGENCES.md):
 
-1. **The reference implementation's CBOR does not match the spec** — text keys from Kotlin property
+1. **The reference implementation's CBOR did not match the spec** — text keys from Kotlin property
    names, byte arrays as arrays of integers, indefinite-length containers. 326 B against 197 B for
-   a canonical encoding. An implementation written from the spec cannot read it.
-2. **The spec's own "~140–180 B" size estimate was never measured.** The floor is ~197 B.
+   a canonical encoding, and unreadable by anything written from the spec.
+   **Fixed** in `openbank-app` `db6e29f3d`; both implementations now agree byte-for-byte and both
+   reject the old encoding.
+2. **The spec's own "~140–180 B" size estimate was never measured.** The floor is ~197 B. **Open** —
+   it belongs in `open-bank-oss`, so the next person adding an optional field knows the real
+   headroom.
 
-This SDK implements the spec, and its decoder rejects the reference encoding rather than tolerating
-it. The reference implementation is dormant behind a flag and nothing has been exchanged in the
-field, so this is the cheapest moment this fix will ever be available.
+Neither was findable by testing: the app's suite round-tripped its own encoder into its own
+decoder, which cannot fail while both halves are wrong the same way. That is the concrete argument
+for this repo existing at all.
 
 ## Why a family of implementations rather than one shared core
 

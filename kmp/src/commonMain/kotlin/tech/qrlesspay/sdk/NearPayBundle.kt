@@ -1,20 +1,17 @@
-// SPDX-License-Identifier: MPL-2.0
-// Copyright (c) OpenBank contributors. Licensed under the Mozilla Public License 2.0.
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) OpenBank contributors. Licensed under the Apache License, Version 2.0.
 package tech.qrlesspay.sdk
-
-import kotlinx.serialization.ExperimentalSerializationApi
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.cbor.Cbor
-import kotlinx.serialization.decodeFromByteArray
-import kotlinx.serialization.encodeToByteArray
-import tech.openbank.app.util.runCatchingCancellable
 
 /**
  * The signed payload transferred over GATT in phase 2 (ADR-0095 spec §3), CBOR-encoded.
  * The Ed25519 [sig] covers [signingBytes] (version|sid|nonce|exp|pk|spayd). The real
  * IBAN lives only inside [spayd] here — never on the advert.
+ *
+ * The encoding is the spec's: a definite-length map with unsigned-integer keys, byte strings for
+ * the binary fields, a text string for the SPAYD. See [Cbor] for why it is hand-rolled rather than
+ * delegated to a serialization library, and #450 for what the library's defaults actually put on
+ * the wire.
  */
-@Serializable
 data class NearPayBundle(
     val version: Int,
     val sid: ByteArray,
@@ -24,8 +21,14 @@ data class NearPayBundle(
     val pk: ByteArray,
     val sig: ByteArray,
 ) {
-    @OptIn(ExperimentalSerializationApi::class)
-    fun toCbor(): ByteArray = Cbor.encodeToByteArray(this)
+    fun toCbor(): ByteArray = Cbor.mapHeader(FIELD_COUNT) +
+        Cbor.uint(KEY_VERSION) + Cbor.uint(version.toLong()) +
+        Cbor.uint(KEY_SID) + Cbor.bytes(sid) +
+        Cbor.uint(KEY_SPAYD) + Cbor.text(spayd) +
+        Cbor.uint(KEY_NONCE) + Cbor.bytes(nonce) +
+        Cbor.uint(KEY_EXP) + Cbor.uint(exp) +
+        Cbor.uint(KEY_PK) + Cbor.bytes(pk) +
+        Cbor.uint(KEY_SIG) + Cbor.bytes(sig)
 
     // data class equals/hashCode would compare the ByteArray fields by reference; override for
     // structural equality so two identical (e.g. decoded) bundles compare equal.
@@ -53,9 +56,73 @@ data class NearPayBundle(
     }
 
     companion object {
-        @OptIn(ExperimentalSerializationApi::class)
-        fun fromCbor(bytes: ByteArray): NearPayBundle? =
-            runCatchingCancellable { Cbor.decodeFromByteArray<NearPayBundle>(bytes) }.getOrNull()
+        // Spec §3 map keys. Integers, not property names — a text key costs 7–8 bytes each on a
+        // payload that has to survive a single GATT read.
+        private const val KEY_VERSION = 1L
+        private const val KEY_SID = 2L
+        private const val KEY_SPAYD = 3L
+        private const val KEY_NONCE = 4L
+        private const val KEY_EXP = 5L
+        private const val KEY_PK = 6L
+        private const val KEY_SIG = 7L
+        private const val FIELD_COUNT = 7
+
+        /**
+         * Returns null for anything that is not exactly one well-formed bundle. Every rejection is
+         * structural and happens before the cryptography ever runs: a wrong major type, an unknown
+         * or repeated key, a missing field, or bytes left over after the map. Tolerating a second
+         * encoding would be how two dialects become permanent (#450).
+         *
+         * Split in two on purpose. [readFields] knows CBOR and nothing about this profile;
+         * assembling below knows the profile and nothing about CBOR. Keeping the two apart is what
+         * stops the type checks from being written per-key seven times over.
+         */
+        fun fromCbor(bytes: ByteArray): NearPayBundle? {
+            val f = readFields(bytes) ?: return null
+            return NearPayBundle(
+                version = (f[KEY_VERSION] as? Long)?.takeIf { it <= Int.MAX_VALUE }?.toInt() ?: return null,
+                sid = f[KEY_SID] as? ByteArray ?: return null,
+                spayd = f[KEY_SPAYD] as? String ?: return null,
+                nonce = f[KEY_NONCE] as? ByteArray ?: return null,
+                exp = f[KEY_EXP] as? Long ?: return null,
+                pk = f[KEY_PK] as? ByteArray ?: return null,
+                sig = f[KEY_SIG] as? ByteArray ?: return null,
+            )
+        }
+
+        /**
+         * Reads the definite-length map into key → value, where a value is a `Long`, a `String` or
+         * a `ByteArray` according to its CBOR major type. Unknown keys, repeated keys, any other
+         * major type and trailing bytes are all rejected here rather than filtered later.
+         */
+        private fun readFields(bytes: ByteArray): Map<Long, Any>? {
+            val r = Cbor.Reader(bytes)
+            val (mapMajor, pairs) = r.readHead() ?: return null
+            if (mapMajor != Cbor.MT_MAP || pairs != FIELD_COUNT.toLong()) return null
+
+            val out = mutableMapOf<Long, Any>()
+            repeat(FIELD_COUNT) {
+                val (keyMajor, key) = r.readHead() ?: return null
+                if (keyMajor != Cbor.MT_UINT || key !in KNOWN_KEYS || key in out) return null
+                out[key] = readValue(r) ?: return null
+            }
+            // Trailing bytes are a framing error, not slack to ignore.
+            return if (r.isAtEnd) out else null
+        }
+
+        /** One value, typed by its CBOR major type. Any other major type is not this profile. */
+        private fun readValue(r: Cbor.Reader): Any? {
+            val (major, arg) = r.readHead() ?: return null
+            return when (major) {
+                Cbor.MT_UINT -> arg
+                Cbor.MT_TSTR -> r.readBytes(arg)?.decodeToString()
+                Cbor.MT_BSTR -> r.readBytes(arg)
+                else -> null
+            }
+        }
+
+        private val KNOWN_KEYS =
+            setOf(KEY_VERSION, KEY_SID, KEY_SPAYD, KEY_NONCE, KEY_EXP, KEY_PK, KEY_SIG)
     }
 }
 

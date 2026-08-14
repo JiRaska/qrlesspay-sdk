@@ -1,9 +1,16 @@
-# Known divergences between the spec and the reference implementation
+# Divergences between the spec and the reference implementation
 
-Both of these were found by building the second implementation. Neither was visible from either
-side alone, which is the argument for the conformance suite in one paragraph.
+Both were found by building the second implementation. Neither was visible from either side alone,
+which is the argument for the conformance suite in one paragraph.
 
-## 1. The bundle's CBOR encoding does not match the spec
+**Status: #1 is fixed, #2 is open.**
+
+## 1. The bundle's CBOR encoding did not match the spec — FIXED
+
+**Resolved in `openbank-app` `db6e29f3d` (PR #451, issue #450), 2026-08-14.** The reference
+implementation now emits the spec's encoding, and its test suite asserts byte-for-byte equality
+against hex produced by the Swift implementation in this repo. The account below is kept because
+the *shape* of the mistake is worth more than the fix.
 
 **Spec** (`qrlesspay-v1.md` §3) pins a map with **unsigned-integer keys** and **byte-string**
 values:
@@ -33,17 +40,23 @@ Measured on the first vector:
 read each other's bundles at all. This is the whole ballgame for a profile whose value proposition
 is that any two banks' apps interoperate off the bytes alone.
 
-**Why now is the cheap moment to fix it.** The payer path is dormant behind
-`NearPay.PAYER_DISCOVERY_ENABLED = false` and nothing is deployed, so no bundle has ever been
-exchanged between two devices in the field. Changing the encoding today costs a code change;
-changing it after rollout is a wire-breaking change to a money-path protocol.
+**Why it was cheap to fix.** The payer path is dormant behind
+`NearPay.PAYER_DISCOVERY_ENABLED = false` and nothing is deployed, so no bundle had ever been
+exchanged between two devices in the field. It cost a code change; after rollout it would have been
+a wire-breaking change to a money-path protocol, needing version negotiation to undo. The window
+was open only because the feature had never shipped — that is luck, not process.
 
-**Recommendation:** fix the implementation, not the spec. The spec's shape is the better one
-independently of who is right — it is 40% smaller on a payload that has to fit a GATT read.
+**What was fixed, and how.** The implementation, not the spec: the spec's shape is better
+independently of who was right, at 40% smaller on a payload that has to fit a GATT read. The
+serialization library was replaced with a hand-rolled codec, because a library that can express
+encodings the spec does not describe is one that can drift back into them.
 
-This SDK implements **the spec**. Its decoder rejects the reference encoding rather than tolerating
-it (`testCanonicalDecoderRejectsTheReferenceEncoding`), because silently accepting both is how two
-dialects become permanent.
+Both sides now **reject** the old encoding rather than tolerating it
+(`testCanonicalDecoderRejectsTheReferenceEncoding` here, `theOldLibraryEncodingIsRejected` there).
+Accepting both is how two dialects become permanent.
+
+`referenceCborHex` in `conformance/vectors.json` is retained as a negative vector: it is what a
+conformant decoder must refuse.
 
 ## 2. The spec's size estimate was never measured
 
