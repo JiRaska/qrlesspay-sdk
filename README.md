@@ -9,9 +9,9 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | Component | State | Verified how |
 |---|---|---|
 | `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `db6e29f3d`) |
-| `swift/` — native Swift core | **real, 19 tests green** | `swift test`; verifies the reference implementation's own signatures |
+| `swift/` — native Swift core | **real, 28 tests green** | `swift test`; verifies the reference implementation's own signatures |
 | `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
-| `kmp/` — Kotlin Multiplatform core | **real, builds, 19 tests green** | `:kmp:jvmTest` (11) + `:kmp:testDebugUnitTest` (8); produces byte-identical CBOR to the Swift implementation |
+| `kmp/` — Kotlin Multiplatform core | **real, builds, 27 tests green** | `:kmp:jvmTest` (19) + `:kmp:testDebugUnitTest` (8); produces byte-identical CBOR to the Swift implementation |
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
 | `kmp/` — Android BLE transport | **written, compiles, produces an AAR, not exercised on hardware** | `:kmp:assembleDebug`; advertise + GATT server + scan + GATT client |
 | `react-native/` — Android bridge | **written, not compiled here** | needs `com.facebook.react:react-android`, which resolves only inside a host RN app. Its KMP-facing calls are compile-checked by `BridgeApiSurfaceTest` |
@@ -21,7 +21,9 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | UWB — iOS ranger (NearbyInteraction) | **written, type-checks against the iOS SDK** | `swiftc -typecheck -sdk iphoneos`; excluded from the macOS build by an `os(iOS)` guard |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
-Nothing is published to a package registry. There is no release.
+Nothing is published to a package registry. There is no release, and **the repository is private** —
+publishing it is a decision with a trademark question attached (`open-bank-oss#4866`: filing before
+publication is materially different from filing after).
 
 ## What is actually demonstrated
 
@@ -68,6 +70,52 @@ against anything.
 
 So the shared artifact is the **conformance suite**, not the code.
 
+## Using it
+
+Payee — advertise a request while the screen is open:
+
+```swift
+let controller = QRlessPayController(transport: CoreBluetoothTransport())
+controller.startReceiving(firstName: "Jiří", spayd: spayd, amountMinor: 25_000)
+// ... on screen dispose:
+controller.stopReceiving()
+```
+
+Payer — discover, then resolve the tapped tile:
+
+```swift
+controller.startDiscovery { tiles in
+    // Already gated by RSSI and ordered nearest-first. `firstName` and `amountMinor` are
+    // display hints from an unauthenticated advert — never show them as the recipient.
+    render(tiles)
+}
+
+switch await controller.resolve(tile: tapped) {
+case .ok(let spayd):
+    // Your confirmation screen, your SCA. The SDK stops here on purpose: no money moves in
+    // this protocol, and the payer's explicit confirmation is the authorising act.
+    showConfirmation(parse(spayd))
+case .rejected(let reason):
+    // `replayed` means this device already paid that bundle — say so, never "try again".
+    explain(reason)
+}
+```
+
+Kotlin is the same shape (`NearPayController(AndroidNearPayTransport(context), …)`), and React
+Native wraps both:
+
+```ts
+const stop = observeNearby(setTiles)
+const result = await resolve(tile)
+if (result.verified) showConfirmation(result.proposal.spayd)
+else explain(result.reason)
+```
+
+Two things the API will not let you do, deliberately: there is no way to obtain a payable proposal
+without running the full verification, and single-use tracking is a required argument rather than an
+option — the reference implementation once shipped it as "the caller's responsibility" and no caller
+ever took it.
+
 ## Layout
 
 ```
@@ -81,8 +129,8 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ## Running it
 
 ```
-cd swift && swift test                      # 19 tests
-./gradlew :kmp:jvmTest                      # 11 tests, needs JDK 20
+cd swift && swift test                      # 28 tests
+./gradlew :kmp:jvmTest                      # 19 tests, needs JDK 20
 ./gradlew :kmp:testDebugUnitTest            # 8 tests on the Android target
 ./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
 

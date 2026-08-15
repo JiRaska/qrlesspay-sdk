@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: Apache-2.0
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+# The point of this file is that "the tests pass" stops being a claim from whoever last ran them
+# locally. A bank evaluating the profile can read the run, not take our word for it.
+jobs:
+  swift:
+    name: Swift (core, transport, conformance)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test
+        working-directory: swift
+        run: swift test
+
+      # NearbyInteraction's peer-ranging API is iOS-only, so the macOS build excludes that file
+      # entirely. Type-checking against the real iOS SDK is what stops it rotting unnoticed —
+      # wrong delegate signatures, renamed initialisers, availability mistakes.
+      - name: Type-check the iOS-only ranger against the iOS SDK
+        working-directory: swift
+        run: |
+          xcrun swiftc -typecheck \
+            -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+            -target arm64-apple-ios16.0 \
+            Sources/QRlessPay/*.swift
+
+  kotlin:
+    name: Kotlin (core, Android transport, conformance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          # Pinned to the version this actually builds under. JDK 26 breaks it: Gradle's embedded
+          # Kotlin throws `IllegalArgumentException: 26.0.2` from JavaVersion.parse, at
+          # configuration time, so every task dies with a message that names no module and looks
+          # like an NDK version. Raise this only after building under the new JDK.
+          java-version: '20'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: JVM tests (conformance, negative corpus, UWB, SAS)
+        run: ./gradlew :kmp:jvmTest
+
+      - name: Android target — unit tests and AAR
+        run: ./gradlew :kmp:testDebugUnitTest :kmp:assembleDebug
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kotlin-test-results
+          path: kmp/build/test-results/**/*.xml
+
+  react-native:
+    name: React Native (TypeScript API)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - working-directory: react-native
+        run: npm install --no-audit --no-fund
+      - working-directory: react-native
+        run: npx tsc --noEmit
+
+  vectors-are-generated-not-edited:
+    name: Conformance vectors match the implementation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '20' }
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The vectors are generated from the reference implementation. If someone hand-edits one to
+      # make a test pass, this regenerates and the diff catches it — the corpus constrains the code
+      # rather than the other way round.
+      - name: Regenerate and diff
+        run: |
+          ./gradlew :kmp:jvmTest --tests '*ZzNegativeCorpusGenerator*' --tests '*ZzSasVectorGenerator*' \
+            -Dqrlesspay.writeVectors=true -Dqrlesspay.vectorsDir="$PWD/conformance"
+          git diff --exit-code -- conformance/ \
+            || { echo "::error::conformance vectors differ from what the implementation generates"; exit 1; }
