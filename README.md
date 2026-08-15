@@ -8,7 +8,7 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 
 | Component | State | Verified how |
 |---|---|---|
-| `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `db6e29f3d`) |
+| `conformance/vectors.json` | **real** | generated from the running reference implementation |
 | `swift/` — native Swift core | **real, 28 tests green** | `swift test`; verifies the reference implementation's own signatures |
 | `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
 | `kmp/` — Kotlin Multiplatform core | **real, builds, 27 tests green** | `:kmp:jvmTest` (19) + `:kmp:testDebugUnitTest` (8); produces byte-identical CBOR to the Swift implementation |
@@ -50,7 +50,7 @@ Building the second implementation surfaced two things neither side could see al
 1. **The reference implementation's CBOR did not match the spec** — text keys from Kotlin property
    names, byte arrays as arrays of integers, indefinite-length containers. 326 B against 197 B for
    a canonical encoding, and unreadable by anything written from the spec.
-   **Fixed** in `openbank-app` `db6e29f3d`; both implementations now agree byte-for-byte and both
+   **Fixed**; both implementations now agree byte-for-byte and both
    reject the old encoding.
 2. **The spec's own "~140–180 B" size estimate was never measured.** The floor is ~197 B. **Open** —
    it belongs in `open-bank-oss`, so the next person adding an optional field knows the real

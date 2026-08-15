@@ -7,8 +7,7 @@ which is the argument for the conformance suite in one paragraph.
 
 ## 1. The bundle's CBOR encoding did not match the spec — FIXED
 
-**Resolved in `openbank-app` `db6e29f3d` (PR #451, issue #450), 2026-08-14.** The reference
-implementation now emits the spec's encoding, and its test suite asserts byte-for-byte equality
+**Resolved 2026-08-14.** The reference implementation now emits the spec's encoding, and its test suite asserts byte-for-byte equality
 against hex produced by the Swift implementation in this repo. The account below is kept because
 the *shape* of the mistake is worth more than the fix.
 
@@ -19,7 +18,7 @@ values:
 { 1: ver, 2: sid (bstr,4), 3: spayd, 4: nonce (bstr,16), 5: exp, 6: pk (bstr,32), 7: sig (bstr,64) }
 ```
 
-**The reference implementation** (`openbank-app`, `NearPayBundle.toCbor()`) uses
+**The reference implementation** (a production Kotlin Multiplatform client) uses
 kotlinx-serialization-cbor with default settings, which emits:
 
 - an **indefinite-length** map (`0xbf … 0xff`) rather than a definite-length one;
@@ -41,7 +40,7 @@ read each other's bundles at all. This is the whole ballgame for a profile whose
 is that any two banks' apps interoperate off the bytes alone.
 
 **Why it was cheap to fix.** The payer path is dormant behind
-`NearPay.PAYER_DISCOVERY_ENABLED = false` and nothing is deployed, so no bundle had ever been
+a disabled feature flag and nothing is deployed, so no bundle had ever been
 exchanged between two devices in the field. It cost a code change; after rollout it would have been
 a wire-breaking change to a money-path protocol, needing version negotiation to undo. The window
 was open only because the feature had never shipped — that is luck, not process.

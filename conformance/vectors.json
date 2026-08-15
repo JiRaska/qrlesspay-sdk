@@ -4,7 +4,7 @@
   "vectors": [
     {
       "id": "ref-0",
-      "source": "openbank-app NearPay reference implementation (commit e3c57b5)",
+      "source": "reference implementation of qrlesspay-v1",
       "advert": {
         "beaconHex": "11044a6972692021222356470061a8",
         "name": "Jiri",
@@ -28,7 +28,7 @@
     },
     {
       "id": "ref-1",
-      "source": "openbank-app NearPay reference implementation (commit e3c57b5)",
+      "source": "reference implementation of qrlesspay-v1",
       "advert": {
         "beaconHex": "10044a6972696d6e6f700c1b",
         "name": "Jiri",
@@ -52,7 +52,7 @@
     },
     {
       "id": "ref-2",
-      "source": "openbank-app NearPay reference implementation (commit e3c57b5)",
+      "source": "reference implementation of qrlesspay-v1",
       "advert": {
         "beaconHex": "11044a697269b6b7b8b9d100000001",
         "name": "Jiri",
