@@ -3,3 +3,4 @@
 build/
 .gradle/
 *.xcodeproj
+node_modules/

@@ -77,16 +77,13 @@ class RecentProposalLog(
     }
 }
 
-/**
- * Process-wide holder for the payer's own recent-proposal history.
+/*
+ * The app this was extracted from keeps a process-wide holder for the log, because accepting a
+ * proposal dismisses its nearby sheet and a composable-scoped instance would be discarded exactly
+ * when the history becomes useful.
  *
- * A global is not the shape one would pick freely, and it is the shape this needs: accepting a
- * proposal dismisses the nearby sheet and navigates to the send screen, so anything held by
- * `remember` is discarded at exactly the moment the history becomes worth having. The window this
- * guards — coming back and tapping the same person again — is precisely the one a composable-scoped
- * log cannot see. The log itself takes an injected clock and is tested directly; this object only
- * decides how long it lives.
+ * That is deliberately NOT part of the SDK. How long the history lives is a host-app decision —
+ * a library that installs a global on its consumer's behalf has made a lifetime choice it has no
+ * standing to make. Construct a [RecentProposalLog] with your own clock and hold it wherever your
+ * navigation model makes it survive.
  */
-object NearPayPayerMemory {
-    val recentProposals = RecentProposalLog(now = ::nowEpochSeconds)
-}

@@ -8,12 +8,14 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 
 | Component | State | Verified how |
 |---|---|---|
-| `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `e3c57b5`) |
-| `swift/` — native Swift core | **real, tests green** | 9 tests, `swift test`; verifies the reference implementation's own signatures |
-| `kmp/` — extracted Kotlin core | **sources extracted, not yet building here** | extracted from `openbank-app` @ `db6e29f3d`, where its own suite is green; its Gradle wiring in *this* repo is not done |
-| BLE / GATT transport | **not started** | — |
+| `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `db6e29f3d`) |
+| `swift/` — native Swift core | **real, 16 tests green** | `swift test`; verifies the reference implementation's own signatures |
+| `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
+| `kmp/` — Kotlin Multiplatform core | **real, builds, 7 tests green** | `./gradlew :kmp:jvmTest`; produces byte-identical CBOR to the Swift implementation |
+| `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
+| `react-native/` — Android bridge | **not written** | blocked: there is no Android BLE transport in this SDK yet (`AndroidNearPayTransport.kt` in `openbank-app` is the extraction candidate) |
 | UWB ranging | **not started** | — |
-| Android native packaging, React Native, Flutter | **not started** | — |
+| Negative conformance corpus | **not started** | the part that matters most, and the part that does not exist |
 
 Nothing is published to a package registry. There is no release.
 
@@ -66,18 +68,31 @@ So the shared artifact is the **conformance suite**, not the code.
 
 ```
 conformance/vectors.json   golden vectors from the reference implementation
-swift/                     native Swift package (SPM)
-kmp/                       extracted Kotlin Multiplatform core
+swift/                     native Swift package (SPM) — protocol core + CoreBluetooth transport
+kmp/                       Kotlin Multiplatform core (Gradle)
+react-native/              TypeScript API + iOS bridge
 KNOWN-DIVERGENCES.md       what the second implementation found
 ```
 
 ## Running it
 
 ```
-cd swift && swift test
+cd swift && swift test                      # 16 tests
+./gradlew :kmp:jvmTest                      # 7 tests, needs JDK 20
+cd react-native && npm install && npx tsc --noEmit
 ```
 
-Requires Swift 5.9+ (developed on 6.3).
+Swift 5.9+ (developed on 6.3). The KMP module declares iOS targets but only the JVM target is
+built here — the Kotlin/Native toolchain download is not something CI does yet.
+
+## One cross-platform gotcha worth knowing before you port
+
+**CryptoKit's Ed25519 signing is randomised; Kotlin's `curve25519` is deterministic.** Measured:
+signing the same message twice with the same key under CryptoKit yields two different signatures,
+and both verify. Neither is wrong, but it decides what a conformance suite may assert — signature
+bytes are comparable against a *fixed vector*, never between two fresh mints. Everything else (sid,
+nonce, expiry, public key, the signed byte string, the CBOR encoding) is reproducible and is what
+the vectors pin.
 
 ## Not in this repo
 

@@ -6,6 +6,14 @@ import CryptoKit
 /// QRlessPay wire constants — `docs/specs/qrlesspay-v1.md`.
 public enum QP {
     public static let version: UInt8 = 1
+
+    // Identifiers. These are the values the reference implementation uses today; the spec's own
+    // table still says `QP01`, which is not valid hex, and the 16-bit alias is squatted rather
+    // than assigned. Tracked in open-bank-oss#4865 — do not treat them as final.
+    public static let serviceUuid = "0000C3A4-2F3B-4E8A-9A5E-0B0E6F1C2D3A"
+    public static let bundleCharUuid = "0000C3A5-2F3B-4E8A-9A5E-0B0E6F1C2D3A"
+    public static let dataUuid16 = "0000F0B2-0000-1000-8000-00805F9B34FB"
+
     public static let sidBytes = 4
     public static let nonceBytes = 16
     public static let keyHashBytes = 2
