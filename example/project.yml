@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The .xcodeproj is generated, never committed — same pattern as the app this SDK was extracted
+# from. Run `xcodegen generate` after cloning.
+name: QRlessPayExample
+options:
+  bundleIdPrefix: tech.qrlesspay
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  QRlessPay:
+    path: ../swift
+
+targets:
+  QRlessPayExample:
+    type: application
+    platform: iOS
+    sources: [Sources]
+    dependencies:
+      - package: QRlessPay
+        product: QRlessPay
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: QRlessPay
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # Without these two the app does not warn, it CRASHES the moment a CBCentralManager or
+        # CBPeripheralManager is constructed. Both are needed: the payer role scans and connects,
+        # the payee role advertises, and an app doing only one of them still needs the string for
+        # the manager it creates.
+        NSBluetoothAlwaysUsageDescription: >-
+          Finds people nearby to pay, and lets them find you. Only a first name is broadcast —
+          never your account number.
+        NSBluetoothPeripheralUsageDescription: >-
+          Lets nearby payers see your payment request. Only a first name is broadcast.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.qrlesspay.example
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1,2"   # iPhone and iPad — the two-device lab run needs both
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic

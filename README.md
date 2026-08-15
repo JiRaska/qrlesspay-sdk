@@ -19,6 +19,7 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | UWB — portable token codec + downgrade policy | **real, 19 corpus cases in both languages** | `swift test` and `:kmp:jvmTest` over the shared `uwb-vectors.json` |
 | UWB — Android ranger (`androidx.core.uwb`) | **written, compiles** | `:kmp:compileDebugKotlinAndroid` |
 | UWB — iOS ranger (NearbyInteraction) | **written, type-checks against the iOS SDK** | `swiftc -typecheck -sdk iphoneos`; excluded from the macOS build by an `os(iOS)` guard |
+| `example/` — iOS demo app | **builds for a real device** | `xcodebuild -destination generic/platform=iOS`; also the two-device lab harness |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
 Nothing is published to a package registry. There is no release, and **the repository is private** —
@@ -123,6 +124,7 @@ conformance/vectors.json   golden vectors from the reference implementation
 swift/                     native Swift package (SPM) — protocol core + CoreBluetooth transport
 kmp/                       Kotlin Multiplatform core (Gradle)
 react-native/              TypeScript API + iOS bridge
+example/                   minimal SwiftUI app — both roles, and the lab harness
 KNOWN-DIVERGENCES.md       what the second implementation found
 ```
 

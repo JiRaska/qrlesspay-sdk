@@ -5,3 +5,4 @@ build/
 *.xcodeproj
 node_modules/
 local.properties
+*.xcodeproj/

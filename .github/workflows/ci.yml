@@ -29,6 +29,22 @@ jobs:
             -target arm64-apple-ios16.0 \
             Sources/QRlessPay/*.swift
 
+  example-app:
+    name: Example app (builds for a real device)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: brew install xcodegen
+      - name: Generate and build for iOS
+        working-directory: example
+        run: |
+          xcodegen generate
+          # generic/platform=iOS, not a simulator: the simulator has no Bluetooth, so a build that
+          # only targets it would not prove the app links against the frameworks it actually needs.
+          xcodebuild -project QRlessPayExample.xcodeproj -scheme QRlessPayExample \
+            -destination 'generic/platform=iOS' -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build
+
   kotlin:
     name: Kotlin (core, Android transport, conformance)
     runs-on: ubuntu-latest
