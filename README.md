@@ -15,7 +15,9 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
 | `kmp/` — Android BLE transport | **written, compiles, produces an AAR, not exercised on hardware** | `:kmp:assembleDebug`; advertise + GATT server + scan + GATT client |
 | `react-native/` — Android bridge | **written, not compiled here** | needs `com.facebook.react:react-android`, which resolves only inside a host RN app. Its KMP-facing calls are compile-checked by `BridgeApiSurfaceTest` |
-| UWB ranging | **not started** | — |
+| UWB — portable token codec + downgrade policy | **real, 19 corpus cases in both languages** | `swift test` and `:kmp:jvmTest` over the shared `uwb-vectors.json` |
+| UWB — Android ranger (`androidx.core.uwb`) | **written, compiles** | `:kmp:compileDebugKotlinAndroid` |
+| UWB — iOS ranger (NearbyInteraction) | **written, type-checks against the iOS SDK** | `swiftc -typecheck -sdk iphoneos`; excluded from the macOS build by an `os(iOS)` guard |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
 Nothing is published to a package registry. There is no release.
@@ -82,11 +84,29 @@ cd swift && swift test                      # 19 tests
 ./gradlew :kmp:jvmTest                      # 11 tests, needs JDK 20
 ./gradlew :kmp:testDebugUnitTest            # 8 tests on the Android target
 ./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
+
+# the iOS-only ranger, which the macOS build excludes:
+cd swift && xcrun swiftc -typecheck -sdk "$(xcrun --sdk iphoneos --show-sdk-path)" \
+  -target arm64-apple-ios16.0 Sources/QRlessPay/*.swift
 cd react-native && npm install && npx tsc --noEmit
 ```
 
 Swift 5.9+ (developed on 6.3). The KMP module declares iOS targets but only the JVM target is
 built here — the Kotlin/Native toolchain download is not something CI does yet.
+
+## UWB is a proposal, not part of the spec
+
+The wire spec describes UWB in prose (§5: "negotiated, best-effort") and gives it **no wire
+format** — no capability flag, no channel for exchanging ranging parameters. Implementing it
+therefore required inventing those bits, and they are marked as a **v1.1 proposal** everywhere they
+appear rather than presented as normative: advert flag `0x8` for UWB-capable, and a fourth GATT
+characteristic carrying a tagged token. Tracked in `open-bank-oss`.
+
+Two facts shape it, both unwelcome. **Apple's Nearby Interaction and Android's FiRa stack do not
+interoperate**, so a cross-platform pair cannot range at any effort — the codec detects that and
+downgrades rather than starting a session that never converges. And **UWB hardware is a minority**,
+so RSSI stays the baseline. UWB is the only cryptographic answer to a relay attack and it is
+unavailable on most pairs; nothing about it may become a precondition for paying.
 
 ## One cross-platform gotcha worth knowing before you port
 

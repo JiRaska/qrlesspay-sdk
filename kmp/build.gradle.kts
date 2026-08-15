@@ -38,6 +38,11 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        androidMain.dependencies {
+            // Optional at runtime for the host app: UWB hardware is a minority, and the base SDK
+            // must not force its binary weight on a bank that skips ranging.
+            implementation("androidx.core.uwb:uwb:1.0.0-alpha08")
+        }
         androidUnitTest.dependencies {
             implementation(kotlin("test"))
         }

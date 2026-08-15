@@ -1,0 +1,136 @@
+{
+  "profile": "qrlesspay-v1.1-proposal",
+  "note": "UWB ranging tokens. The spec defines no wire format for UWB; these pin the proposal so two implementations cannot drift before it is adopted. The rejection cases matter most: a token from the other platform must FAIL to decode, never be misread as a malformed local one.",
+  "valid": [
+    {
+      "id": "uwb-controller",
+      "kind": "controller",
+      "hex": "510101abcd090a01020304",
+      "address": "abcd",
+      "channel": 9,
+      "preambleIndex": 10,
+      "sessionId": 16909060
+    },
+    {
+      "id": "uwb-controlee",
+      "kind": "controlee",
+      "hex": "5101021234",
+      "address": "1234"
+    },
+    {
+      "id": "uwb-opaque-apple",
+      "kind": "opaque",
+      "hex": "510103deadbeef",
+      "blob": "deadbeef"
+    }
+  ],
+  "rejected": [
+    {
+      "id": "uwb-wrong-magic",
+      "why": "A token whose magic byte is not 'Q' \u2014 anything else on that characteristic is not this profile.",
+      "hex": "4f0101abcd090a01020304"
+    },
+    {
+      "id": "uwb-future-version",
+      "why": "Version 2. A future revision must fail closed here rather than be read with v1 field offsets.",
+      "hex": "510201abcd090a01020304"
+    },
+    {
+      "id": "uwb-unknown-kind",
+      "why": "Kind 9 is not controller, controlee or opaque.",
+      "hex": "510109abcd"
+    },
+    {
+      "id": "uwb-controller-short-payload",
+      "why": "Controller payload one byte short \u2014 decoding it would read a session id from adjacent bytes.",
+      "hex": "510101abcd090a010203"
+    },
+    {
+      "id": "uwb-controlee-wrong-length",
+      "why": "Controlee address must be exactly two bytes.",
+      "hex": "510102ab"
+    },
+    {
+      "id": "uwb-opaque-empty",
+      "why": "An empty Apple token carries nothing to hand back to the platform.",
+      "hex": "510103"
+    },
+    {
+      "id": "uwb-header-only",
+      "why": "Three bytes and no payload.",
+      "hex": "5101"
+    },
+    {
+      "id": "uwb-empty",
+      "why": "Zero bytes.",
+      "hex": ""
+    }
+  ],
+  "policy": [
+    {
+      "id": "pol-no-local-uwb",
+      "localSupportsUwb": false,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "5101021234",
+      "localIsAppleStack": false,
+      "expect": "no-local-uwb"
+    },
+    {
+      "id": "pol-peer-not-capable",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": false,
+      "peerTokenHex": "5101021234",
+      "localIsAppleStack": false,
+      "expect": "peer-not-uwb-capable"
+    },
+    {
+      "id": "pol-no-token",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": null,
+      "localIsAppleStack": false,
+      "expect": "no-peer-token"
+    },
+    {
+      "id": "pol-unreadable-token",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "deadbeef",
+      "localIsAppleStack": false,
+      "expect": "unreadable-peer-token"
+    },
+    {
+      "id": "pol-cross-platform-apple-peer",
+      "why": "Both sides have UWB hardware and still cannot range: Apple's peer protocol is not FiRa.",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "510103dead",
+      "localIsAppleStack": false,
+      "expect": "cross-platform-uwb-unsupported"
+    },
+    {
+      "id": "pol-cross-platform-fira-peer",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "5101021234",
+      "localIsAppleStack": true,
+      "expect": "cross-platform-uwb-unsupported"
+    },
+    {
+      "id": "pol-attempt-fira-pair",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "5101021234",
+      "localIsAppleStack": false,
+      "expect": "attempt"
+    },
+    {
+      "id": "pol-attempt-apple-pair",
+      "localSupportsUwb": true,
+      "peerAdvertisedUwb": true,
+      "peerTokenHex": "510103dead",
+      "localIsAppleStack": true,
+      "expect": "attempt"
+    }
+  ]
+}
