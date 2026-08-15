@@ -21,5 +21,18 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+        jvmTest.dependencies {
+            // Test-only, never in the published artifact: the negative corpus is JSON, and a
+            // hand-rolled reader for it is one more thing that can be wrong while looking right.
+            implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+        }
+    }
+}
+
+// Gradle does not forward -D to the test JVM. Without this the generator runs, reports success and
+// writes nothing — an exit code of 0 for work that never happened.
+tasks.withType<Test>().configureEach {
+    listOf("qrlesspay.writeVectors", "qrlesspay.vectorsDir").forEach { key ->
+        System.getProperty(key)?.let { systemProperty(key, it) }
     }
 }

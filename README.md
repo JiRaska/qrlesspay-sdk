@@ -9,13 +9,13 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | Component | State | Verified how |
 |---|---|---|
 | `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `db6e29f3d`) |
-| `swift/` — native Swift core | **real, 16 tests green** | `swift test`; verifies the reference implementation's own signatures |
+| `swift/` — native Swift core | **real, 19 tests green** | `swift test`; verifies the reference implementation's own signatures |
 | `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
-| `kmp/` — Kotlin Multiplatform core | **real, builds, 7 tests green** | `./gradlew :kmp:jvmTest`; produces byte-identical CBOR to the Swift implementation |
+| `kmp/` — Kotlin Multiplatform core | **real, builds, 11 tests green** | `./gradlew :kmp:jvmTest`; produces byte-identical CBOR to the Swift implementation |
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
 | `react-native/` — Android bridge | **not written** | blocked: there is no Android BLE transport in this SDK yet (`AndroidNearPayTransport.kt` in `openbank-app` is the extraction candidate) |
 | UWB ranging | **not started** | — |
-| Negative conformance corpus | **not started** | the part that matters most, and the part that does not exist |
+| Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
 Nothing is published to a package registry. There is no release.
 
@@ -77,8 +77,8 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ## Running it
 
 ```
-cd swift && swift test                      # 16 tests
-./gradlew :kmp:jvmTest                      # 7 tests, needs JDK 20
+cd swift && swift test                      # 19 tests
+./gradlew :kmp:jvmTest                      # 11 tests, needs JDK 20
 cd react-native && npm install && npx tsc --noEmit
 ```
 

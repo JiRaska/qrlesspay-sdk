@@ -16,7 +16,7 @@ let package = Package(
         .testTarget(
             name: "QRlessPayTests",
             dependencies: ["QRlessPay"],
-            resources: [.copy("vectors.json")]
+            resources: [.copy("vectors.json"), .copy("negative-vectors.json")]
         ),
     ]
 )
