@@ -1,10 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 plugins {
     kotlin("multiplatform") version "2.4.0"
+    id("com.android.library") version "8.10.0"
+}
+
+// AGP 8.10.0 is the ceiling that still runs on Gradle 8.11.1; 8.11+ needs Gradle 8.13, which is
+// the Gradle-9 line. Pinned deliberately, same as the app this core was extracted from.
+android {
+    namespace = "tech.qrlesspay.sdk"
+    compileSdk = 36
+    defaultConfig { minSdk = 26 }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 }
 
 kotlin {
     jvm()
+    androidTarget()
     // iOS targets are declared because the profile has to link there; they are not built in CI
     // yet, and the README says so rather than implying an artifact that has never been produced.
     iosX64()
@@ -17,8 +31,14 @@ kotlin {
             // JNI. The CBOR codec is hand-rolled in this module — see Cbor.kt for why.
             implementation("io.github.andreypfau:curve25519-kotlin:0.0.8")
             implementation("org.kotlincrypto.hash:sha2:0.8.0")
+            // The transport's fetchBundle is suspend, and the Android implementation bridges
+            // GATT callbacks with suspendCancellableCoroutine.
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
         }
         commonTest.dependencies {
+            implementation(kotlin("test"))
+        }
+        androidUnitTest.dependencies {
             implementation(kotlin("test"))
         }
         jvmTest.dependencies {

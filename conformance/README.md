@@ -52,7 +52,13 @@ copy a payer reads.
 |---|---|---|
 | Swift (`swift test`) | yes | yes |
 | Kotlin JVM (`./gradlew :kmp:jvmTest`) | yes | yes |
-| Kotlin iOS targets | no | no — reading a file from `commonTest` needs a multiplatform resource story this module does not have yet |
+| Kotlin Android (`./gradlew :kmp:testDebugUnitTest`) | yes | no |
+| Kotlin iOS targets | no | no |
+
+The negative corpus runs only where a test can read a file. `commonTest` cannot, portably, so the
+Android and iOS targets get the positive vectors (hardcoded in `ConformanceTest`) and not the
+corpus. That is a real gap and the reason it is written down: the targets that ship to devices are
+the ones running the weaker half.
 
 Both suites were **falsified**: weakening either decoder (dropping the trailing-byte check and the
 unknown-key rejection) turns the structural corpus red in both languages.

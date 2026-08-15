@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: Apache-2.0
+// Consumed by a host React Native app's Gradle build, not by this repository's own build — there is
+// no RN app here to link it into, and a module that only compiles inside someone else's project is
+// stated as such in the README rather than implied to be verified.
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    namespace 'tech.qrlesspay.rn'
+    compileSdk 36
+    defaultConfig { minSdk 26 }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.facebook.react:react-android'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0'
+    // The protocol core plus the Android BLE transport.
+    implementation project(':qrlesspay-kmp')
+}

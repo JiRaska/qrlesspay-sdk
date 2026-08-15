@@ -11,9 +11,10 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | `conformance/vectors.json` | **real** | generated from the running reference implementation (`openbank-app` @ `db6e29f3d`) |
 | `swift/` — native Swift core | **real, 19 tests green** | `swift test`; verifies the reference implementation's own signatures |
 | `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
-| `kmp/` — Kotlin Multiplatform core | **real, builds, 11 tests green** | `./gradlew :kmp:jvmTest`; produces byte-identical CBOR to the Swift implementation |
+| `kmp/` — Kotlin Multiplatform core | **real, builds, 19 tests green** | `:kmp:jvmTest` (11) + `:kmp:testDebugUnitTest` (8); produces byte-identical CBOR to the Swift implementation |
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
-| `react-native/` — Android bridge | **not written** | blocked: there is no Android BLE transport in this SDK yet (`AndroidNearPayTransport.kt` in `openbank-app` is the extraction candidate) |
+| `kmp/` — Android BLE transport | **written, compiles, produces an AAR, not exercised on hardware** | `:kmp:assembleDebug`; advertise + GATT server + scan + GATT client |
+| `react-native/` — Android bridge | **written, not compiled here** | needs `com.facebook.react:react-android`, which resolves only inside a host RN app. Its KMP-facing calls are compile-checked by `BridgeApiSurfaceTest` |
 | UWB ranging | **not started** | — |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
@@ -79,6 +80,8 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ```
 cd swift && swift test                      # 19 tests
 ./gradlew :kmp:jvmTest                      # 11 tests, needs JDK 20
+./gradlew :kmp:testDebugUnitTest            # 8 tests on the Android target
+./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
 cd react-native && npm install && npx tsc --noEmit
 ```
 

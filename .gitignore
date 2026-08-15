@@ -4,3 +4,4 @@ build/
 .gradle/
 *.xcodeproj
 node_modules/
+local.properties
