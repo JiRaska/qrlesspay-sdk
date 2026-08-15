@@ -15,6 +15,7 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
 | `kmp/` — Android BLE transport | **written, compiles, produces an AAR, not exercised on hardware** | `:kmp:assembleDebug`; advertise + GATT server + scan + GATT client |
 | `react-native/` — Android bridge | **written, not compiled here** | needs `com.facebook.react:react-android`, which resolves only inside a host RN app. Its KMP-facing calls are compile-checked by `BridgeApiSurfaceTest` |
+| SAS (X25519 + HKDF numeric code) | **real, cross-language vectors, 4 + 6 tests** | `:kmp:jvmTest` and `swift test` derive identical codes at 4, 6 and 8 digits |
 | UWB — portable token codec + downgrade policy | **real, 19 corpus cases in both languages** | `swift test` and `:kmp:jvmTest` over the shared `uwb-vectors.json` |
 | UWB — Android ranger (`androidx.core.uwb`) | **written, compiles** | `:kmp:compileDebugKotlinAndroid` |
 | UWB — iOS ranger (NearbyInteraction) | **written, type-checks against the iOS SDK** | `swiftc -typecheck -sdk iphoneos`; excluded from the macOS build by an `os(iOS)` guard |
@@ -93,6 +94,22 @@ cd react-native && npm install && npx tsc --noEmit
 
 Swift 5.9+ (developed on 6.3). The KMP module declares iOS targets but only the JVM target is
 built here — the Kotlin/Native toolchain download is not something CI does yet.
+
+## SAS: implemented, and the spec left the decisive parts unsaid
+
+§4 names X25519, HKDF and the label `QP-SAS` and stops there — it does not say what goes into the
+transcript, how many digits, or how digits are drawn from key material. Two implementations that
+guess differently show a payer **different numbers for an honest link**, which inverts the
+mechanism: people abandon legitimate payments and learn to ignore the check.
+
+So the derivation is pinned by cross-language vectors, and the transcript binds the session id and
+the payee's Ed25519 key alongside both ephemeral keys. That matters beyond interop: a SAS over the
+raw shared secret alone proves only that *some* agreement was not intercepted, whereas binding the
+bundle makes confirming the digits mean "this link is not intercepted **and** it carries the payment
+I am about to make". Six digits, per the §10 proposal, rather than §4's four.
+
+Tests assert the mechanism rather than describing it: a man in the middle who agrees separately with
+each side produces **different codes on each side**, and changing the bundle changes the code.
 
 ## UWB is a proposal, not part of the spec
 

@@ -1,0 +1,17 @@
+        {
+          "profile": "qrlesspay-v1.1-proposal",
+          "note": "SAS derivation. The spec (§4) names X25519, HKDF and the label and stops there; these pin the transcript, the digit count and how digits are drawn, so two implementations cannot show a payer different numbers for an honest link.",
+          "payeeScalarHex": "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f20",
+          "payerScalarHex": "c8c7c6c5c4c3c2c1c0bfbebdbcbbbab9b8b7b6b5b4b3b2b1b0afaeadacabaaa9",
+          "payeeEphemeralPkHex": "07a37cbc142093c8b755dc1b10e86cb426374ad16aa853ed0bdfc0b2b86d1c7c",
+          "payerEphemeralPkHex": "8dafcfeeae9045ee9a78d78a99fcf32e7781e441eb073096c342b8e2dcc3b612",
+          "sidHex": "20212223",
+          "payeeEd25519PkHex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+          "transcriptHex": "0120212223404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f07a37cbc142093c8b755dc1b10e86cb426374ad16aa853ed0bdfc0b2b86d1c7c8dafcfeeae9045ee9a78d78a99fcf32e7781e441eb073096c342b8e2dcc3b612",
+          "sharedSecretHex": "c59a3caae04422419f688043a6520cc5037ebcdb95e4bdada713b0cd291a2773",
+          "codes": [
+            { "digits": 4, "code": "3251" },
+{ "digits": 6, "code": "153251" },
+{ "digits": 8, "code": "64153251" }
+          ]
+        }

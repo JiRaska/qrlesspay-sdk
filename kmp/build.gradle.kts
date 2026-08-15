@@ -31,6 +31,10 @@ kotlin {
             // JNI. The CBOR codec is hand-rolled in this module — see Cbor.kt for why.
             implementation("io.github.andreypfau:curve25519-kotlin:0.0.8")
             implementation("org.kotlincrypto.hash:sha2:0.8.0")
+            // HMAC-SHA256, for the HKDF the spec names for SAS derivation (§4). Keeping the
+            // spec's primitive rather than substituting a bare hash: deviating from a stated
+            // construction is a decision for the spec, not for an implementation of it.
+            implementation("org.kotlincrypto.macs:hmac-sha2:0.8.0")
             // The transport's fetchBundle is suspend, and the Android implementation bridges
             // GATT callbacks with suspendCancellableCoroutine.
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
