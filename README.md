@@ -22,9 +22,9 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | `example/` — iOS demo app | **builds for a real device** | `xcodebuild -destination generic/platform=iOS`; also the two-device lab harness |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
-Nothing is published to a package registry. There is no release, and **the repository is private** —
-publishing it is a decision with a trademark question attached (`open-bank-oss#4866`: filing before
-publication is materially different from filing after).
+Nothing is published to a package registry — no SPM index entry, no Maven, no npm. The repository is
+public and tagged `v0.1.0`; publication settled the trademark question by making it moot rather than
+by answering it (`open-bank-oss#4866`).
 
 ## What is actually demonstrated
 
