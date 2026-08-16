@@ -69,6 +69,51 @@ re-litigated the first time someone tunes MTU or adds a field. The spec should s
 figure and the floor, so the next person adding an optional field knows what headroom actually
 exists.
 
+## 3. Four decoder defects found by fuzzing — ALL FIXED
+
+Threat-model §8 gate 2 asks for the decoders to be fuzzed. Doing it (`FuzzTests` / `FuzzTest`, run
+in both languages) turned up four defects that the golden vectors and the 20-case negative corpus
+could not, because a corpus only contains the malformed inputs somebody thought of.
+
+Three of the four existed in **one implementation only**, which is the argument for this repository
+restated as evidence rather than as a claim.
+
+| # | Where | Defect |
+|---|---|---|
+| 3a | both | `decode` accepted any UTF-8 in the advert's name while `encode` folded it to ASCII |
+| 3b | Kotlin | `fromCbor` replaced invalid UTF-8 in the SPAYD with U+FFFD instead of rejecting |
+| 3c | Kotlin | `BeaconCodec.encode` wrote the constant `NearPay.VERSION`, ignoring the payload's own |
+| 3d | Kotlin | the ASCII fold trimmed *before* filtering, so it was not idempotent |
+
+**3a is the one with a security argument.** The advert is the only thing that crosses the air
+unauthenticated, and the name is the only field a payer reads off a tile before tapping it. A
+hostile payee does not have to call `encode` — it hand-builds the bytes — so nothing stopped it
+shipping combining marks, an RTL override or zero-width joiners into that label. Both decoders now
+fold on the way **in**, and the fold keeps printable ASCII only rather than `isASCII`, which had
+been letting control characters through.
+
+**3b concerns the payment string itself.** Kotlin's `decodeToString()` substitutes U+FFFD for a
+malformed sequence by default, so a corrupted SPAYD decoded "successfully" into a *silently altered*
+one; Swift rejected the same bundle. Kotlin is now strict, and the two agree on what is a bundle.
+
+**3c and 3d are interop, not security**, and both are the same shape: two implementations quietly
+disagreeing on bytes for an input no test had thought to supply.
+
+### What made the fuzzing find them
+
+Not crash-freedom — a decoder that accepts everything never crashes. The oracles are:
+
+1. **canonical round-trip** — a bundle that decodes must re-encode to *its input bytes*, since the
+   profile pins exactly one encoding (this is what caught 3b);
+2. **idempotence** — an advert that decodes must survive re-encode and re-decode unchanged (3a, 3c,
+   3d);
+3. **nothing fuzzed ever verifies** — no mutated bundle may pass §3 verification.
+
+Each test also asserts that it accepted *something*, so it cannot pass by rejecting every input, and
+every case is a pure function of a printed seed so a red run hands back the exact bytes. The suites
+were falsified by weakening each decoder in turn: tolerating trailing bytes in the Swift bundle
+decoder, for instance, goes red at seed 1.
+
 ## Everything else agrees
 
 Worth stating explicitly, because it is the part that gives confidence the two implementations are

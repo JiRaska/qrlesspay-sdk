@@ -32,7 +32,13 @@ public enum BeaconCodec {
 
         var i = 2
         guard bytes.count >= i + nameLen + QP.sidBytes + QP.keyHashBytes else { return nil }
-        guard let name = String(bytes: bytes[i..<(i + nameLen)], encoding: .utf8) else { return nil }
+        guard let rawName = String(bytes: bytes[i..<(i + nameLen)], encoding: .utf8) else { return nil }
+        // Sanitise on the way IN, not only on the way out. The advert is unauthenticated and its
+        // name is the one field a payer reads on the tile, so a hostile payee that hand-builds the
+        // bytes (rather than calling `encode`) could otherwise deliver combining marks, an RTL
+        // override or zero-width joiners straight to the UI. Folding here also makes decoding
+        // idempotent, which is what lets the fuzz oracle assert anything at all.
+        let name = foldToAscii(rawName)
         i += nameLen
 
         let sid = Array(bytes[i..<(i + QP.sidBytes)]); i += QP.sidBytes
@@ -52,8 +58,14 @@ public enum BeaconCodec {
     static func foldToAscii(_ s: String) -> String {
         s.folding(options: [.diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .unicodeScalars
-            .filter { $0.isASCII }
+            // Printable ASCII only. `isASCII` alone lets control characters through, and the
+            // fuzzer delivered exactly that (U+000B in a decoded name) — a display label is not a
+            // place for anything the payer cannot see.
+            .filter { $0.value >= 0x20 && $0.value <= 0x7E }
             .reduce(into: "") { $0.unicodeScalars.append($1) }
+            // Trimmed AFTER folding, matching Kotlin: dropping a non-ASCII character can expose a
+            // space that was interior in the input, so trimming first is not idempotent.
+            .trimmingCharacters(in: .whitespaces)
     }
 
     /// Truncates on a character boundary, never mid-codepoint.

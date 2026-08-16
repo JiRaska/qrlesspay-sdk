@@ -9,9 +9,9 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | Component | State | Verified how |
 |---|---|---|
 | `conformance/vectors.json` | **real** | generated from the running reference implementation |
-| `swift/` — native Swift core | **real, 28 tests green** | `swift test`; verifies the reference implementation's own signatures |
+| `swift/` — native Swift core | **real, 34 tests green** | `swift test`; verifies the reference implementation's own signatures |
 | `swift/` — CoreBluetooth transport | **written, compiles, not exercised on hardware** | advertise + GATT server + scan + GATT client; driven end-to-end by a loopback transport in tests. **No two-device run has happened** |
-| `kmp/` — Kotlin Multiplatform core | **real, builds, 27 tests green** | `:kmp:jvmTest` (19) + `:kmp:testDebugUnitTest` (8); produces byte-identical CBOR to the Swift implementation |
+| `kmp/` — Kotlin Multiplatform core | **real, builds, 33 tests green** | `:kmp:jvmTest` (22) + `:kmp:testDebugUnitTest` (11); produces byte-identical CBOR to the Swift implementation |
 | `react-native/` — TypeScript API + iOS bridge | **TS type-checks; bridge not compiled here** | `tsc --noEmit`; the bridge compiles inside a host RN app, which this repo does not contain |
 | `kmp/` — Android BLE transport | **written, compiles, produces an AAR, not exercised on hardware** | `:kmp:assembleDebug`; advertise + GATT server + scan + GATT client |
 | `react-native/` — Android bridge | **written, not compiled here** | needs `com.facebook.react:react-android`, which resolves only inside a host RN app. Its KMP-facing calls are compile-checked by `BridgeApiSurfaceTest` |
@@ -20,6 +20,7 @@ Decision: ADR-0095 · Licence: Apache-2.0.
 | UWB — Android ranger (`androidx.core.uwb`) | **written, compiles** | `:kmp:compileDebugKotlinAndroid` |
 | UWB — iOS ranger (NearbyInteraction) | **written, type-checks against the iOS SDK** | `swiftc -typecheck -sdk iphoneos`; excluded from the macOS build by an `os(iOS)` guard |
 | `example/` — iOS demo app | **builds for a real device** | `xcodebuild -destination generic/platform=iOS`; also the two-device lab harness |
+| Decoder fuzzing (threat-model §8 gate 2) | **real, both languages, found 4 defects** | seeded property-based fuzzing over the bundle, advert and UWB decoders; oracles are canonical round-trip, idempotence and never-verifies, and each suite was falsified by weakening a decoder |
 | Negative conformance corpus | **real, 20 cases, run by both implementations** | generated from the reference implementation; falsified by weakening each decoder in turn |
 
 Nothing is published to a package registry — no SPM index entry, no Maven, no npm. The repository is
@@ -44,7 +45,7 @@ checked against.
 
 ## What it found
 
-Building the second implementation surfaced two things neither side could see alone. Both are in
+Building the second implementation surfaced things neither side could see alone. All are in
 [`KNOWN-DIVERGENCES.md`](KNOWN-DIVERGENCES.md):
 
 1. **The reference implementation's CBOR did not match the spec** — text keys from Kotlin property
@@ -55,8 +56,12 @@ Building the second implementation surfaced two things neither side could see al
 2. **The spec's own "~140–180 B" size estimate was never measured.** The floor is ~197 B. **Open** —
    it belongs in `open-bank-oss`, so the next person adding an optional field knows the real
    headroom.
+3. **Fuzzing the decoders found four more defects, three of them in one implementation only** —
+   most importantly that an unauthenticated advert could put combining marks or an RTL override
+   into the single name a payer reads before tapping a tile, because only `encode` folded to ASCII
+   and `decode` did not. All fixed.
 
-Neither was findable by testing: the app's suite round-tripped its own encoder into its own
+None of these was findable by testing: the app's suite round-tripped its own encoder into its own
 decoder, which cannot fail while both halves are wrong the same way. That is the concrete argument
 for this repo existing at all.
 
@@ -131,9 +136,9 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ## Running it
 
 ```
-cd swift && swift test                      # 28 tests
-./gradlew :kmp:jvmTest                      # 19 tests, needs JDK 20
-./gradlew :kmp:testDebugUnitTest            # 8 tests on the Android target
+cd swift && swift test                      # 34 tests
+./gradlew :kmp:jvmTest                      # 22 tests, needs JDK 20
+./gradlew :kmp:testDebugUnitTest            # 11 tests on the Android target
 ./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
 
 # the iOS-only ranger, which the macOS build excludes:

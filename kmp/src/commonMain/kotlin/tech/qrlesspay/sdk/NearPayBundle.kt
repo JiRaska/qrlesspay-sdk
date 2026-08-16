@@ -115,7 +115,12 @@ data class NearPayBundle(
             val (major, arg) = r.readHead() ?: return null
             return when (major) {
                 Cbor.MT_UINT -> arg
-                Cbor.MT_TSTR -> r.readBytes(arg)?.decodeToString()
+                // `decodeToString()` defaults to REPLACING an invalid UTF-8 sequence with U+FFFD,
+                // so a malformed SPAYD would decode "successfully" into a silently altered payment
+                // string — while Swift, which rejects it, would refuse the same bundle. Strict.
+                Cbor.MT_TSTR -> r.readBytes(arg)?.let {
+                    runCatching { it.decodeToString(throwOnInvalidSequence = true) }.getOrNull()
+                } ?: return null
                 Cbor.MT_BSTR -> r.readBytes(arg)
                 else -> null
             }
