@@ -20,6 +20,31 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>tech.qrlesspay.spayd</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>spayd</string>
+				<string>spayd-9999</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>spayd-0100</string>
+		<string>spayd-0300</string>
+		<string>spayd-0600</string>
+		<string>spayd-0800</string>
+		<string>spayd-2010</string>
+		<string>spayd-2700</string>
+		<string>spayd-3030</string>
+		<string>spayd-5500</string>
+		<string>spayd-6210</string>
+		<string>spayd-9999</string>
+	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Finds people nearby to pay, and lets them find you. Only a first name is broadcast — never your account number.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>

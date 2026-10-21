@@ -37,6 +37,26 @@ targets:
           never your account number.
         NSBluetoothPeripheralUsageDescription: >-
           Lets nearby payers see your payment request. Only a first name is broadcast.
+        # SPAYD-URI (SPAYD-URI.md): the stock Camera app offers "Open in QRlessPay" for a QR whose
+        # content is a spayd:// URI, because the scheme is registered here. The second scheme is this
+        # bank's relay address — a pilot stand-in; a real bank uses its own ČNB bank code.
+        CFBundleURLTypes:
+          - CFBundleURLName: tech.qrlesspay.spayd
+            CFBundleURLSchemes: [spayd, spayd-9999]
+        # The relay chooser asks canOpenURL about each of these. iOS answers false for any scheme
+        # not declared here, whatever is installed — so this list IS the set of banks the chooser
+        # can ever show. Keep it equal to SpaydUriModel.knownBankCodes.
+        LSApplicationQueriesSchemes:
+          - spayd-0100
+          - spayd-0300
+          - spayd-0600
+          - spayd-0800
+          - spayd-2010
+          - spayd-2700
+          - spayd-3030
+          - spayd-5500
+          - spayd-6210
+          - spayd-9999
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.qrlesspay.example
