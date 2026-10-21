@@ -43,6 +43,7 @@
 		<string>spayd-3030</string>
 		<string>spayd-5500</string>
 		<string>spayd-6210</string>
+		<string>spayd-9998</string>
 		<string>spayd-9999</string>
 	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
