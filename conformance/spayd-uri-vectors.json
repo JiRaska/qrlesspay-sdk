@@ -1,0 +1,201 @@
+{
+    "generatedBy": "kmp ZzSpaydUriVectorGenerator",
+    "positive": [
+        {
+            "name": "typical",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "bankCode": null,
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "typical-relay-0800",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "bankCode": "0800",
+            "uri": "spayd-0800://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "bic",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399+GIBACZPX*AM:1.00*CC:CZK",
+            "bankCode": null,
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399+GIBACZPX*AM:1.00*CC:CZK"
+        },
+        {
+            "name": "message-with-space-and-slash",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123/2026",
+            "bankCode": null,
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura%20123%2F2026"
+        },
+        {
+            "name": "every-delimiter",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*MSG:50% #7?a&b=c%",
+            "bankCode": "0300",
+            "uri": "spayd-0300://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:50%25%20%237%3Fa%26b%3Dc%25"
+        },
+        {
+            "name": "utf8-diacritics",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*RN:Ji\u0159\u00ed Nov\u00e1\u010dek",
+            "bankCode": null,
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*RN:Ji%C5%99%C3%AD%20Nov%C3%A1%C4%8Dek"
+        },
+        {
+            "name": "x-vs",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*X-VS:123456*X-SS:1",
+            "bankCode": null,
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*X-VS:123456*X-SS:1"
+        }
+    ],
+    "tolerated": [
+        {
+            "name": "opaque-no-slashes",
+            "uri": "spayd:SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "no-version-segment",
+            "uri": "spayd://SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "upper-case-scheme",
+            "uri": "SPAYD://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "upper-case-relay-scheme",
+            "uri": "SPAYD-0800://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "lower-case-hex-escape",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Ji%72i",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "escaped-prefix-decodes-first",
+            "uri": "spayd://v1/%53PD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "surrounding-whitespace",
+            "uri": "  spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri \n",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        }
+    ],
+    "negative": [
+        {
+            "name": "https-not-spayd",
+            "uri": "https://pay.example/v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "bare-descriptor-is-not-a-uri",
+            "uri": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "no-scheme-at-all",
+            "uri": "v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "spaydx-scheme",
+            "uri": "spaydx://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "empty",
+            "uri": "",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "bank-code-too-short",
+            "uri": "spayd-80://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-bank-code"
+        },
+        {
+            "name": "bank-code-letters",
+            "uri": "spayd-08OO://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-bank-code"
+        },
+        {
+            "name": "bank-code-empty",
+            "uri": "spayd-://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-bank-code"
+        },
+        {
+            "name": "version-v2",
+            "uri": "spayd://v2/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-version"
+        },
+        {
+            "name": "host-not-version",
+            "uri": "spayd://pay/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-version"
+        },
+        {
+            "name": "version-without-payload",
+            "uri": "spayd://v1",
+            "reason": "bad-version"
+        },
+        {
+            "name": "raw-space",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123",
+            "reason": "illegal-character"
+        },
+        {
+            "name": "raw-utf8",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*RN:Ji\u0159\u00ed",
+            "reason": "illegal-character"
+        },
+        {
+            "name": "control-byte",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399\u0007",
+            "reason": "illegal-character"
+        },
+        {
+            "name": "escaped-control-byte",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:a%07b",
+            "reason": "illegal-character"
+        },
+        {
+            "name": "escaped-nul",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:a%00b",
+            "reason": "illegal-character"
+        },
+        {
+            "name": "truncated-escape",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:a%2",
+            "reason": "bad-percent-encoding"
+        },
+        {
+            "name": "non-hex-escape",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:a%ZZ",
+            "reason": "bad-percent-encoding"
+        },
+        {
+            "name": "invalid-utf8-after-decoding",
+            "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*MSG:%C3",
+            "reason": "bad-percent-encoding"
+        },
+        {
+            "name": "empty-payload",
+            "uri": "spayd://v1/",
+            "reason": "not-spayd"
+        },
+        {
+            "name": "not-a-descriptor",
+            "uri": "spayd://v1/hello",
+            "reason": "not-spayd"
+        },
+        {
+            "name": "descriptor-without-account",
+            "uri": "spayd://v1/SPD*1.0*AM:250.00*CC:CZK",
+            "reason": "not-spayd"
+        },
+        {
+            "name": "lower-case-spd",
+            "uri": "spayd://v1/spd*1.0*ACC:CZ6508000000192000145399",
+            "reason": "not-spayd"
+        }
+    ]
+}

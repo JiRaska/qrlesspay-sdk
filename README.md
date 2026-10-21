@@ -117,6 +117,15 @@ if (result.verified) showConfirmation(result.proposal.spayd)
 else explain(result.reason)
 ```
 
+Camera-scannable QR — the same SPAYD behind a registered scheme, so the stock Camera app offers a
+bank app instead of showing text ([SPAYD-URI.md](SPAYD-URI.md)). One call in every scanner, and it
+keeps reading every QR already printed:
+
+```swift
+if let spayd = SpaydUri.unwrap(scannedText) { showConfirmation(parse(spayd)) }   // bare or spayd://
+let qrContent = try SpaydUri.wrap(spayd)                                           // producer side
+```
+
 Two things the API will not let you do, deliberately: there is no way to obtain a payable proposal
 without running the full verification, and single-use tracking is a required argument rather than an
 option — the reference implementation once shipped it as "the caller's responsibility" and no caller
@@ -126,6 +135,7 @@ ever took it.
 
 ```
 conformance/vectors.json   golden vectors from the reference implementation
+SPAYD-URI.md               the camera-scannable envelope: spec, platform behaviour, pilot steps
 swift/                     native Swift package (SPM) — protocol core + CoreBluetooth transport
 kmp/                       Kotlin Multiplatform core (Gradle)
 react-native/              TypeScript API + iOS bridge
@@ -136,9 +146,9 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ## Running it
 
 ```
-cd swift && swift test                      # 34 tests
-./gradlew :kmp:jvmTest                      # 22 tests, needs JDK 20
-./gradlew :kmp:testDebugUnitTest            # 11 tests on the Android target
+cd swift && swift test                      # 39 tests
+./gradlew :kmp:jvmTest                      # 33 tests, needs JDK 20
+./gradlew :kmp:testDebugUnitTest            # 18 tests on the Android target
 ./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
 
 # the iOS-only ranger, which the macOS build excludes:

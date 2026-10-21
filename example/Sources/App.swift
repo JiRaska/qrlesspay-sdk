@@ -21,12 +21,16 @@ struct QRlessPayExampleApp: App {
 }
 
 struct RootView: View {
+    @StateObject private var uriModel = SpaydUriModel()
+    @State private var showCameraPath = false
+
     var body: some View {
         NavigationStack {
             List {
                 Section {
                     NavigationLink("Receive — advertise a request") { PayeeView() }
                     NavigationLink("Pay — find someone nearby") { PayerView() }
+                    NavigationLink("Camera QR — spayd:// URI", isActive: $showCameraPath) { SpaydUriView(model: uriModel) }
                 } footer: {
                     Text(RootCopy.howToRun)
                 }
@@ -36,6 +40,13 @@ struct RootView: View {
                 }
             }
             .navigationTitle("QRlessPay")
+        }
+        // The camera path lands here: iOS resolved a `spayd://` or `spayd-9999://` QR to this app
+        // (schemes in project.yml) and hands over the URL. Same entry point for a relay from
+        // another bank's app.
+        .onOpenURL { url in
+            uriModel.handle(url)
+            showCameraPath = true
         }
     }
 }
