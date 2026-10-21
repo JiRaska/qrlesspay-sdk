@@ -24,8 +24,9 @@ final class SpaydUriModel: ObservableObject {
 
     /// Bank codes this pilot can relay to. Every entry must also appear in
     /// `LSApplicationQueriesSchemes` as `spayd-<code>`, or `canOpenURL` answers false regardless of
-    /// what is installed — iOS refuses to answer about undeclared schemes.
-    static let knownBankCodes = ["0100", "0300", "0600", "0800", "2010", "2700", "3030", "5500", "6210", "9999"]
+    /// what is installed — iOS refuses to answer about undeclared schemes. 9998 is OpenBank's
+    /// pilot relay code, so the pilot pair (this app + OpenBank) can see each other.
+    static let knownBankCodes = ["0100", "0300", "0600", "0800", "2010", "2700", "3030", "5500", "6210", "9998", "9999"]
 
     @Published var received: String?
     @Published var proposal: SpaydData?

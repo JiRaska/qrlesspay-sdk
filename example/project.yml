@@ -56,6 +56,7 @@ targets:
           - spayd-3030
           - spayd-5500
           - spayd-6210
+          - spayd-9998
           - spayd-9999
     settings:
       base:
