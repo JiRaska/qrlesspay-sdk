@@ -39,14 +39,30 @@ object SpaydUri {
 
     private const val SPAYD_PREFIX = "SPD*"
 
+    /**
+     * The domain-verified envelope. A custom scheme can be squatted by any app, and the OS will
+     * hand it every camera scan; a universal / app link can only be opened by apps listed in the
+     * domain's association files, which the operator of [LINK_HOST] controls. The association
+     * files are cached on the device at install time, so an installed bank opens the link
+     * offline; only a phone with no bank at all reaches the web page behind it.
+     *
+     * `https://open-bank.tech/pay/v1?SPD*…` is the common link, `…/pay/v1/<bank code>?SPD*…` one
+     * bank's. Pilot host; the standard's host is for the association to choose.
+     */
+    const val LINK_HOST: String = "open-bank.tech"
+    const val LINK_PATH: String = "/pay/v1"
+
+    /** Which envelope carried the descriptor. */
+    enum class Envelope { SCHEME, LINK }
+
     /** Where a URI asks to be opened: the common scheme, or one bank's relay scheme. */
     data class Target(val bankCode: String?) {
         /** The scheme this target is addressed by, lower case. */
         val scheme: String get() = if (bankCode == null) SCHEME else "$SCHEME-$bankCode"
     }
 
-    /** A successfully unwrapped payload: the SPAYD string and the target it was addressed to. */
-    data class Unwrapped(val spayd: String, val target: Target)
+    /** A successfully unwrapped payload: the SPAYD string, the target it was addressed to, and how. */
+    data class Unwrapped(val spayd: String, val target: Target, val envelope: Envelope = Envelope.SCHEME)
 
     /** Why [parse] refused. Asserted by the conformance corpus — the reason is part of the contract. */
     enum class Rejection {
@@ -67,6 +83,9 @@ object SpaydUri {
 
         /** Decoded cleanly and is not a SPAYD (does not start with `SPD*`, or [parseSpayd] refuses it). */
         NOT_SPAYD,
+
+        /** An https link whose host is not [LINK_HOST]: not ours, whatever its path says. */
+        BAD_LINK_HOST,
     }
 
     sealed class Result {
@@ -89,6 +108,17 @@ object SpaydUri {
     }
 
     /**
+     * Wrap a SPAYD as a domain-verified link — the form a QR should carry where the link host's
+     * association files are deployed. [bankCode] addresses one bank's path; null is the common link.
+     */
+    fun wrapLink(spayd: String, bankCode: String? = null): String {
+        require(parseSpayd(spayd) != null) { "not a SPAYD descriptor" }
+        require(bankCode == null || isBankCode(bankCode)) { "bank code must be exactly four digits" }
+        val path = if (bankCode == null) LINK_PATH else "$LINK_PATH/$bankCode"
+        return "https://" + LINK_HOST + path + "?" + percentEncode(spayd, forQuery = true)
+    }
+
+    /**
      * Accept a scanned payload in either form — bare `SPD*…` or a SPAYD-URI — and return the SPAYD.
      *
      * This is the one call a QR scanner should make. A bare descriptor passes through untouched
@@ -107,6 +137,7 @@ object SpaydUri {
         val colon = s.indexOf(':')
         if (colon < 0) return Result.Rejected(Rejection.NOT_SPAYD_URI)
         val scheme = s.substring(0, colon).lowercase()
+        if (scheme == "https") return parseLink(s.substring(colon + 1))
         val target = when {
             scheme == SCHEME -> Target(null)
             scheme.startsWith("$SCHEME-") -> {
@@ -136,18 +167,44 @@ object SpaydUri {
             }
         }
 
-        for (c in rest) {
+        return decodePayload(rest, target, Envelope.SCHEME)
+    }
+
+    /** `//host/pay/v1[/code]?payload[#…]`, the part after `https:`. Host case-insensitive, path exact. */
+    private fun parseLink(afterScheme: String): Result {
+        if (!afterScheme.startsWith("//")) return Result.Rejected(Rejection.NOT_SPAYD_URI)
+        val noFragment = afterScheme.substringBefore('#')
+        val authorityAndPath = noFragment.substringBefore('?')
+        val query = if ('?' in noFragment) noFragment.substringAfter('?') else ""
+        val hostEnd = authorityAndPath.indexOf('/', 2).let { if (it < 0) authorityAndPath.length else it }
+        val host = authorityAndPath.substring(2, hostEnd).lowercase()
+        if (host != LINK_HOST) return Result.Rejected(Rejection.BAD_LINK_HOST)
+        val path = authorityAndPath.substring(hostEnd).trimEnd('/')
+        val target = when {
+            path == LINK_PATH -> Target(null)
+            path.startsWith("$LINK_PATH/") -> {
+                val code = path.substring(LINK_PATH.length + 1)
+                if (!isBankCode(code)) return Result.Rejected(Rejection.BAD_BANK_CODE)
+                Target(code)
+            }
+            else -> return Result.Rejected(Rejection.BAD_VERSION)
+        }
+        return decodePayload(query, target, Envelope.LINK)
+    }
+
+    private fun decodePayload(encoded: String, target: Target, envelope: Envelope): Result {
+        for (c in encoded) {
             if (c.code <= 0x20 || c.code >= 0x7F) return Result.Rejected(Rejection.ILLEGAL_CHARACTER)
         }
-        val decoded = percentDecode(rest) ?: return Result.Rejected(Rejection.BAD_PERCENT_ENCODING)
+        val decoded = percentDecode(encoded) ?: return Result.Rejected(Rejection.BAD_PERCENT_ENCODING)
         // An escape can smuggle in what a raw byte could not. A control character has no place in a
-        // SPAYD (NUL in particular: no database column accepts it, so it would surface as a 500
-        // far from here), and refusing it is the same decision as refusing the raw byte.
+        // SPAYD (NUL in particular: no database column accepts it), and refusing it is the same
+        // decision as refusing the raw byte.
         if (decoded.any { it.code < 0x20 || it.code == 0x7F }) return Result.Rejected(Rejection.ILLEGAL_CHARACTER)
         if (!decoded.startsWith(SPAYD_PREFIX) || parseSpayd(decoded) == null) {
             return Result.Rejected(Rejection.NOT_SPAYD)
         }
-        return Result.Ok(Unwrapped(decoded, target))
+        return Result.Ok(Unwrapped(decoded, target, envelope))
     }
 
     /**
@@ -161,16 +218,18 @@ object SpaydUri {
     // Unreserved (RFC 3986 §2.3) plus the sub-delims a SPAYD actually uses and a path segment permits.
     // `%` must be encoded (it would read as an escape), `/` must be (it ends the segment),
     // `?` and `#` must be (query and fragment delimiters). Everything non-ASCII is encoded as UTF-8.
-    private fun isRaw(c: Char): Boolean =
+    // In a query string `+` is read as a space by many form decoders, so the link form encodes it;
+    // a path segment has no such convention and keeps it raw.
+    private fun isRaw(c: Char, forQuery: Boolean): Boolean =
         c in 'A'..'Z' || c in 'a'..'z' || c in '0'..'9' || c == '-' || c == '.' || c == '_' ||
-            c == '~' || c == '*' || c == ':' || c == '+' || c == ','
+            c == '~' || c == '*' || c == ':' || c == ',' || (c == '+' && !forQuery)
 
     private const val HEX = "0123456789ABCDEF"
 
-    internal fun percentEncode(s: String): String = buildString {
+    internal fun percentEncode(s: String, forQuery: Boolean = false): String = buildString {
         for (b in s.encodeToByteArray()) {
             val v = b.toInt() and 0xFF
-            if (v < 0x80 && isRaw(v.toChar())) {
+            if (v < 0x80 && isRaw(v.toChar(), forQuery)) {
                 append(v.toChar())
             } else {
                 append('%'); append(HEX[v shr 4]); append(HEX[v and 0x0F])

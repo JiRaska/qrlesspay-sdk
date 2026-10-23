@@ -44,6 +44,22 @@ class SpaydUriCorpusTest {
     }
 
     @Test
+    fun linkVectorsWrapToTheCommittedLinkAndBack() {
+        for (c in v["link"]!!.jsonArray.map { it.jsonObject }) {
+            val name = c["name"]!!.jsonPrimitive.content
+            val spayd = c["spayd"]!!.jsonPrimitive.content
+            val code = c["bankCode"]!!.jsonPrimitive.takeIf { it.isString }?.content
+            val uri = c["uri"]!!.jsonPrimitive.content
+            assertEquals(uri, SpaydUri.wrapLink(spayd, code), name)
+            val ok = assertIs<SpaydUri.Result.Ok>(SpaydUri.parse(uri), name)
+            assertEquals(spayd, ok.value.spayd, name)
+            assertEquals(code, ok.value.target.bankCode, name)
+            assertEquals(SpaydUri.Envelope.LINK, ok.value.envelope, name)
+            assertEquals(spayd, SpaydUri.unwrap(uri), name)
+        }
+    }
+
+    @Test
     fun toleratedFormsUnwrapToTheSameDescriptor() {
         for (c in v["tolerated"]!!.jsonArray.map { it.jsonObject }) {
             val name = c["name"]!!.jsonPrimitive.content

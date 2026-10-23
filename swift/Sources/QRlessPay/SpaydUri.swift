@@ -32,6 +32,16 @@ public enum SpaydUri {
 
     private static let spaydPrefix = "SPD*"
 
+    /// The domain-verified envelope. A custom scheme can be squatted by any app; a universal link
+    /// can only be opened by apps listed in the host's association file, which the host's operator
+    /// controls, and iOS caches that file at install time so an installed bank opens the link
+    /// offline. `https://open-bank.tech/pay/v1?SPD*…` is the common link, `…/pay/v1/<code>?…` one
+    /// bank's. Pilot host; the standard's host is for the association to choose.
+    public static let linkHost = "open-bank.tech"
+    public static let linkPath = "/pay/v1"
+
+    public enum Envelope: Equatable { case scheme, link }
+
     /// Where a URI asks to be opened: the common scheme, or one bank's relay scheme.
     public struct Target: Equatable {
         public let bankCode: String?
@@ -43,6 +53,10 @@ public enum SpaydUri {
     public struct Unwrapped: Equatable {
         public let spayd: String
         public let target: Target
+        public let envelope: Envelope
+        public init(spayd: String, target: Target, envelope: Envelope = .scheme) {
+            self.spayd = spayd; self.target = target; self.envelope = envelope
+        }
     }
 
     /// Why `parse` refused. Asserted by the conformance corpus — the reason is part of the contract.
@@ -53,6 +67,7 @@ public enum SpaydUri {
         case badPercentEncoding = "bad-percent-encoding"
         case illegalCharacter = "illegal-character"
         case notSpayd = "not-spayd"
+        case badLinkHost = "bad-link-host"
     }
 
     public enum Result: Equatable {
@@ -74,6 +89,15 @@ public enum SpaydUri {
         return Target(bankCode: bankCode).scheme + "://" + versionSegment + "/" + percentEncode(spayd)
     }
 
+    /// Wrap a SPAYD as a domain-verified link — the form a QR should carry where the link host's
+    /// association files are deployed. `bankCode` addresses one bank's path; nil is the common link.
+    public static func wrapLink(_ spayd: String, bankCode: String? = nil) throws -> String {
+        guard Spayd.parse(spayd) != nil else { throw WrapError.notASpayd }
+        if let code = bankCode, !isBankCode(code) { throw WrapError.badBankCode }
+        let path = bankCode.map { "\(linkPath)/\($0)" } ?? linkPath
+        return "https://" + linkHost + path + "?" + percentEncode(spayd, forQuery: true)
+    }
+
     /// Accept a scanned payload in either form — bare `SPD*…` or a SPAYD-URI — and return the SPAYD.
     /// The one call a QR scanner should make. Nil for anything else; use `parse` for the reason.
     public static func unwrap(_ raw: String) -> String? {
@@ -88,6 +112,7 @@ public enum SpaydUri {
         let s = uri.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let colon = s.firstIndex(of: ":") else { return .rejected(.notSpaydUri) }
         let schemePart = s[s.startIndex..<colon].lowercased()
+        if schemePart == "https" { return parseLink(String(s[s.index(after: colon)...])) }
         let target: Target
         if schemePart == scheme {
             target = Target(bankCode: nil)
@@ -115,13 +140,49 @@ public enum SpaydUri {
             }
         }
 
-        for u in rest.utf8 where u <= 0x20 || u >= 0x7F { return .rejected(.illegalCharacter) }
-        guard let decoded = percentDecode(String(rest)) else { return .rejected(.badPercentEncoding) }
+        return decodePayload(String(rest), target: target, envelope: .scheme)
+    }
+
+    /// `//host/pay/v1[/code]?payload[#…]`, the part after `https:`. Host case-insensitive, path exact.
+    private static func parseLink(_ afterScheme: String) -> Result {
+        guard afterScheme.hasPrefix("//") else { return .rejected(.notSpaydUri) }
+        let noFragment = afterScheme.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)[0]
+        let parts = noFragment.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        let authorityAndPath = parts[0].dropFirst(2)
+        let query = parts.count > 1 ? String(parts[1]) : ""
+        let host: Substring
+        let path: String
+        if let slash = authorityAndPath.firstIndex(of: "/") {
+            host = authorityAndPath[authorityAndPath.startIndex..<slash]
+            path = String(authorityAndPath[slash...])
+        } else {
+            host = authorityAndPath
+            path = ""
+        }
+        guard host.lowercased() == linkHost else { return .rejected(.badLinkHost) }
+        var trimmed = path
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        let target: Target
+        if trimmed == linkPath {
+            target = Target(bankCode: nil)
+        } else if trimmed.hasPrefix(linkPath + "/") {
+            let code = String(trimmed.dropFirst(linkPath.count + 1))
+            guard isBankCode(code) else { return .rejected(.badBankCode) }
+            target = Target(bankCode: code)
+        } else {
+            return .rejected(.badVersion)
+        }
+        return decodePayload(query, target: target, envelope: .link)
+    }
+
+    private static func decodePayload(_ encoded: String, target: Target, envelope: Envelope) -> Result {
+        for u in encoded.utf8 where u <= 0x20 || u >= 0x7F { return .rejected(.illegalCharacter) }
+        guard let decoded = percentDecode(encoded) else { return .rejected(.badPercentEncoding) }
         // An escape can smuggle in what a raw byte could not; a control character (NUL above all)
         // has no place in a SPAYD, and refusing it is the same decision as refusing the raw byte.
         if decoded.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) { return .rejected(.illegalCharacter) }
         guard decoded.hasPrefix(spaydPrefix), Spayd.parse(decoded) != nil else { return .rejected(.notSpayd) }
-        return .ok(Unwrapped(spayd: decoded, target: target))
+        return .ok(Unwrapped(spayd: decoded, target: target, envelope: envelope))
     }
 
     /// The relay scheme for a bank code — what a relay app probes with `canOpenURL`. Nil for an
@@ -135,22 +196,25 @@ public enum SpaydUri {
     }
 
     // Unreserved (RFC 3986 §2.3) plus the sub-delims a SPAYD actually uses and a path segment permits.
-    private static func isRaw(_ b: UInt8) -> Bool {
+    // In a query string `+` is read as a space by many form decoders, so the link form encodes it;
+    // a path segment has no such convention and keeps it raw.
+    private static func isRaw(_ b: UInt8, forQuery: Bool) -> Bool {
         switch b {
         case 0x41...0x5A, 0x61...0x7A, 0x30...0x39: return true
         case 0x2D, 0x2E, 0x5F, 0x7E: return true          // - . _ ~
-        case 0x2A, 0x3A, 0x2B, 0x2C: return true          // * : + ,
+        case 0x2A, 0x3A, 0x2C: return true                // * : ,
+        case 0x2B: return !forQuery                       // +
         default: return false
         }
     }
 
     private static let hex = Array("0123456789ABCDEF".utf8)
 
-    static func percentEncode(_ s: String) -> String {
+    static func percentEncode(_ s: String, forQuery: Bool = false) -> String {
         var out: [UInt8] = []
         out.reserveCapacity(s.utf8.count + 16)
         for b in s.utf8 {
-            if isRaw(b) {
+            if isRaw(b, forQuery: forQuery) {
                 out.append(b)
             } else {
                 out.append(0x25); out.append(hex[Int(b >> 4)]); out.append(hex[Int(b & 0x0F)])

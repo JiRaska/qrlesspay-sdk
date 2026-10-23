@@ -44,6 +44,32 @@
             "uri": "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*X-VS:123456*X-SS:1"
         }
     ],
+    "link": [
+        {
+            "name": "link-common",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "bankCode": null,
+            "uri": "https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "link-bank-9998",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "bankCode": "9998",
+            "uri": "https://open-bank.tech/pay/v1/9998?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "link-bic-plus-is-encoded",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399+GIBACZPX*AM:1.00*CC:CZK",
+            "bankCode": null,
+            "uri": "https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399%2BGIBACZPX*AM:1.00*CC:CZK"
+        },
+        {
+            "name": "link-message-with-space",
+            "spayd": "SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123/2026",
+            "bankCode": "0800",
+            "uri": "https://open-bank.tech/pay/v1/0800?SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura%20123%2F2026"
+        }
+    ],
     "tolerated": [
         {
             "name": "opaque-no-slashes",
@@ -79,13 +105,28 @@
             "name": "surrounding-whitespace",
             "uri": "  spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri \n",
             "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "link-upper-case-host",
+            "uri": "https://OPEN-BANK.TECH/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "link-trailing-slash",
+            "uri": "https://open-bank.tech/pay/v1/?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
+        },
+        {
+            "name": "link-with-fragment",
+            "uri": "https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri#x",
+            "expectedSpayd": "SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri"
         }
     ],
     "negative": [
         {
             "name": "https-not-spayd",
             "uri": "https://pay.example/v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
-            "reason": "not-spayd-uri"
+            "reason": "bad-link-host"
         },
         {
             "name": "bare-descriptor-is-not-a-uri",
@@ -106,6 +147,41 @@
             "name": "empty",
             "uri": "",
             "reason": "not-spayd-uri"
+        },
+        {
+            "name": "link-wrong-host",
+            "uri": "https://pay.example.org/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-link-host"
+        },
+        {
+            "name": "link-lookalike-host",
+            "uri": "https://open-bank.tech.evil.example/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-link-host"
+        },
+        {
+            "name": "link-http-not-https",
+            "uri": "http://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "not-spayd-uri"
+        },
+        {
+            "name": "link-wrong-path",
+            "uri": "https://open-bank.tech/app/oauth/callback?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-version"
+        },
+        {
+            "name": "link-bank-code-letters",
+            "uri": "https://open-bank.tech/pay/v1/08OO?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
+            "reason": "bad-bank-code"
+        },
+        {
+            "name": "link-no-query",
+            "uri": "https://open-bank.tech/pay/v1",
+            "reason": "not-spayd"
+        },
+        {
+            "name": "link-raw-space",
+            "uri": "https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123",
+            "reason": "illegal-character"
         },
         {
             "name": "bank-code-too-short",

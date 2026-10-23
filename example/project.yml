@@ -58,6 +58,14 @@ targets:
           - spayd-6210
           - spayd-9998
           - spayd-9999
+    # Universal links: the domain-verified envelope (SPAYD-URI.md). The host's association file
+    # lists this app for /pay/v1*, so iOS routes https://open-bank.tech/pay/v1?SPD*... here, and a
+    # rogue app registering the bare scheme cannot intercept the camera path.
+    entitlements:
+      path: Sources/QRlessPayExample.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:open-bank.tech
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.qrlesspay.example

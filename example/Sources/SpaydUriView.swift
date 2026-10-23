@@ -31,6 +31,7 @@ final class SpaydUriModel: ObservableObject {
     @Published var received: String?
     @Published var proposal: SpaydData?
     @Published var target: SpaydUri.Target?
+    @Published var envelope: SpaydUri.Envelope?
     @Published var rejection: String?
     @Published var otherBanks: [String] = []
 
@@ -40,6 +41,7 @@ final class SpaydUriModel: ObservableObject {
         received = raw
         proposal = nil
         target = nil
+        envelope = nil
         rejection = nil
         otherBanks = []
 
@@ -48,6 +50,7 @@ final class SpaydUriModel: ObservableObject {
             rejection = reason.rawValue
         case let .ok(unwrapped):
             target = unwrapped.target
+            envelope = unwrapped.envelope
             proposal = Spayd.parse(unwrapped.spayd)
             // Addressed to us by name, or on the common scheme: only the latter asks who else is here.
             if unwrapped.target.bankCode == nil {
@@ -56,10 +59,12 @@ final class SpaydUriModel: ObservableObject {
         }
     }
 
-    /// The URI to hand another bank: the same SPAYD, re-wrapped on that bank's relay scheme.
+    /// The URL to hand another bank: the same SPAYD on that bank's domain-verified link. Only
+    /// the app the association file lists for that path can open it; if none is installed, iOS
+    /// falls back to the web page behind the link instead of a wrong app.
     func relayUrl(to bankCode: String) -> URL? {
         guard let raw = received, case let .ok(u) = SpaydUri.parse(raw),
-              let s = try? SpaydUri.wrap(u.spayd, bankCode: bankCode) else { return nil }
+              let s = try? SpaydUri.wrapLink(u.spayd, bankCode: bankCode) else { return nil }
         return URL(string: s)
     }
 
@@ -111,7 +116,8 @@ struct SpaydUriView: View {
                     if let a = p.amount { LabeledContent("Amount", value: "\(a) \(p.currency ?? "")") }
                     if let n = p.recipientName { LabeledContent("Recipient", value: n) }
                     if let m = p.message { LabeledContent("Message", value: m) }
-                    LabeledContent("Addressed to", value: model.target?.bankCode.map { "spayd-\($0)" } ?? "spayd (common)")
+                    LabeledContent("Addressed to", value: model.target?.bankCode.map { "bank \($0)" } ?? "common")
+                    LabeledContent("Envelope", value: model.envelope == .link ? "https link (domain-verified)" : "spayd:// scheme")
                 }
             }
 
@@ -140,9 +146,9 @@ struct SpaydUriView: View {
 
 private enum UriCopy {
     static let labHint = """
-        On a device, scan a QR holding a spayd:// URI with the stock Camera app instead; iOS offers \
-        "Open in QRlessPay" and this screen receives it. The field is for the simulator and for \
-        the conformance corpus.
+        On a device, scan a QR holding https://open-bank.tech/pay/v1?SPD*… (or a spayd:// URI) \
+        with the stock Camera app instead; iOS offers one of the apps the domain lists and this \
+        screen receives it. The field is for the simulator and for the conformance corpus.
         """
     static let refusedHint = """
         Reasons are the conformance corpus names — a bank's scanner and this one must refuse the \

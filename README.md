@@ -146,8 +146,8 @@ KNOWN-DIVERGENCES.md       what the second implementation found
 ## Running it
 
 ```
-cd swift && swift test                      # 39 tests
-./gradlew :kmp:jvmTest                      # 33 tests, needs JDK 20
+cd swift && swift test                      # 40 tests
+./gradlew :kmp:jvmTest                      # 34 tests, needs JDK 20
 ./gradlew :kmp:testDebugUnitTest            # 18 tests on the Android target
 ./gradlew :kmp:assembleDebug                # produces kmp-debug.aar
 
