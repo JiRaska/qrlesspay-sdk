@@ -44,6 +44,21 @@ class ZzSpaydUriVectorGenerator {
             }
         }
 
+        // The domain-verified envelope, produced by wrapLink.
+        val link = listOf(
+            Triple("link-common", spayd, null),
+            Triple("link-bank-9998", spayd, "9998"),
+            Triple("link-bic-plus-is-encoded", "SPD*1.0*ACC:CZ6508000000192000145399+GIBACZPX*AM:1.00*CC:CZK", null),
+            Triple("link-message-with-space", "SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123/2026", "0800"),
+        ).map { (name, s, code) ->
+            buildJsonObject {
+                put("name", JsonPrimitive(name))
+                put("spayd", JsonPrimitive(s))
+                put("bankCode", code?.let { JsonPrimitive(it) } ?: kotlinx.serialization.json.JsonNull)
+                put("uri", JsonPrimitive(SpaydUri.wrapLink(s, code)))
+            }
+        }
+
         // Accepted on input although never produced: each must unwrap to exactly `expectedSpayd`.
         val tolerated = listOf(
             "opaque-no-slashes" to "spayd:$spayd",
@@ -53,6 +68,9 @@ class ZzSpaydUriVectorGenerator {
             "lower-case-hex-escape" to "spayd://v1/SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Ji%72i",
             "escaped-prefix-decodes-first" to "spayd://v1/%53PD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*RN:Jiri",
             "surrounding-whitespace" to "  spayd://v1/$spayd \n",
+            "link-upper-case-host" to "https://OPEN-BANK.TECH/pay/v1?$spayd",
+            "link-trailing-slash" to "https://open-bank.tech/pay/v1/?$spayd",
+            "link-with-fragment" to "https://open-bank.tech/pay/v1?$spayd#x",
         ).map { (name, uri) ->
             buildJsonObject {
                 put("name", JsonPrimitive(name))
@@ -62,11 +80,18 @@ class ZzSpaydUriVectorGenerator {
         }
 
         val negative = listOf(
-            Triple("https-not-spayd", "https://pay.example/v1/$spayd", "not-spayd-uri"),
+            Triple("https-not-spayd", "https://pay.example/v1/$spayd", "bad-link-host"),
             Triple("bare-descriptor-is-not-a-uri", spayd, "not-spayd-uri"),
             Triple("no-scheme-at-all", "v1/$spayd", "not-spayd-uri"),
             Triple("spaydx-scheme", "spaydx://v1/$spayd", "not-spayd-uri"),
             Triple("empty", "", "not-spayd-uri"),
+            Triple("link-wrong-host", "https://pay.example.org/pay/v1?$spayd", "bad-link-host"),
+            Triple("link-lookalike-host", "https://open-bank.tech.evil.example/pay/v1?$spayd", "bad-link-host"),
+            Triple("link-http-not-https", "http://open-bank.tech/pay/v1?$spayd", "not-spayd-uri"),
+            Triple("link-wrong-path", "https://open-bank.tech/app/oauth/callback?$spayd", "bad-version"),
+            Triple("link-bank-code-letters", "https://open-bank.tech/pay/v1/08OO?$spayd", "bad-bank-code"),
+            Triple("link-no-query", "https://open-bank.tech/pay/v1", "not-spayd"),
+            Triple("link-raw-space", "https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*MSG:Faktura 123", "illegal-character"),
             Triple("bank-code-too-short", "spayd-80://v1/$spayd", "bad-bank-code"),
             Triple("bank-code-letters", "spayd-08OO://v1/$spayd", "bad-bank-code"),
             Triple("bank-code-empty", "spayd-://v1/$spayd", "bad-bank-code"),
@@ -97,6 +122,7 @@ class ZzSpaydUriVectorGenerator {
             mapOf(
                 "generatedBy" to JsonPrimitive("kmp ZzSpaydUriVectorGenerator"),
                 "positive" to JsonArray(positive),
+                "link" to JsonArray(link),
                 "tolerated" to JsonArray(tolerated),
                 "negative" to JsonArray(negative),
             ),

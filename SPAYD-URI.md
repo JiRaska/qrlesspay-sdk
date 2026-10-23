@@ -32,6 +32,37 @@ of the wire spec (§11) holds: the URI is unwrapped on the device and the bytes 
 what a printed QR carries. Where the SPAYD itself has a trust story (none; the payer confirms on a
 screen the bank controls), the URI inherits it unchanged.
 
+## The domain-verified envelope (link form)
+
+A custom scheme has one hole no code can close: **any app may register it**, App Review does not
+police schemes, and the OS then hands that app every camera scan. A rogue "bank" could alter the
+account and forward the payment to the real bank, where the payer sees a wrong IBAN on an
+otherwise normal screen — the sticker-swap attack, at scale and invisible. The link form closes it:
+
+```
+https://open-bank.tech/pay/v1?SPD*1.0*ACC:CZ6508000000192000145399*AM:250.00*CC:CZK*MSG:Faktura%20123
+https://open-bank.tech/pay/v1/0800?SPD*…          (addressed to one bank)
+```
+
+- Which apps may open the link is decided by the host's association files
+  (`/.well-known/apple-app-site-association`, `/.well-known/assetlinks.json`) — an **allowlist the
+  host's operator maintains**. A rogue app cannot get in. The pilot host is `open-bank.tech`; the
+  standard's host is for the association (ČBA) to choose and run.
+- Both platforms cache the association files on the device when the app is installed, so an
+  installed bank opens the link **offline**. Only a phone with no listed app reaches the web page
+  behind the link, which says so and shows the payment (`/pay/v1` is a static page; nothing is
+  sent anywhere).
+- The payload is encoded as in the scheme form, except `+` (`%2B`): many query-string decoders
+  read a raw `+` as a space, and `ACC:IBAN+BIC` carries one.
+- Decoders refuse any other host as `bad-link-host` — including look-alikes such as
+  `open-bank.tech.evil.example` — and `http://` as `not-spayd-uri`.
+- The scheme form stays as the offline fallback for the chooser's *probe* (`canOpenURL` on
+  `spayd-<code>`) and for systems without association support. Carry the link in the QR.
+
+The chooser below is unchanged: iOS still opens exactly one listed app, which then offers the
+other installed banks; forwarding uses the addressed link (`/pay/v1/<code>`), which only that
+bank's app can open — if it is not installed, iOS shows the fallback page instead of a wrong app.
+
 ## Choosing the app — the two platforms do not behave alike, and no envelope can hide it
 
 **Android.** Every bank registers an `intent-filter` for the `spayd` scheme. When more than one
@@ -107,8 +138,9 @@ Swift (`SpaydUri`) and Kotlin (`tech.qrlesspay.sdk.SpaydUri`), identical shape:
 | Call | Purpose |
 |---|---|
 | `wrap(spayd, bankCode: nil)` | Producer. Refuses anything `Spayd.parse` refuses, and a bank code that is not four digits. |
+| `wrapLink(spayd, bankCode: nil)` | Producer, link form — what a QR should carry. Same refusals. |
 | `unwrap(raw)` | **The one call a scanner makes.** Bare `SPD*…` or any accepted URI form → the SPAYD; otherwise nil. |
-| `parse(uri)` | Strict, with the refusal reason; reports which target (common or `bankCode`) the URI was addressed to. |
+| `parse(uri)` | Strict, with the refusal reason; reports the target (common or `bankCode`) and the `envelope` (scheme or link). |
 | `relayScheme(bankCode:)` | `spayd-NNNN` for a valid code, nil otherwise — so a bank list cannot produce a scheme nobody registered. |
 
 The React Native binding does not expose it yet; `unwrap` is pure string work and belongs in the

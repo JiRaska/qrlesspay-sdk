@@ -30,6 +30,23 @@ final class SpaydUriCorpusTests: XCTestCase {
         }
     }
 
+    func testLinkVectorsWrapToTheCommittedLinkAndBack() throws {
+        let cases = try XCTUnwrap(vectors()["link"] as? [[String: Any]])
+        XCTAssertFalse(cases.isEmpty)
+        for c in cases {
+            let name = c["name"] as! String
+            let spayd = c["spayd"] as! String
+            let code = c["bankCode"] as? String
+            let uri = c["uri"] as! String
+            XCTAssertEqual(try SpaydUri.wrapLink(spayd, bankCode: code), uri, name)
+            guard case .ok(let u) = SpaydUri.parse(uri) else { return XCTFail("\(name): refused") }
+            XCTAssertEqual(u.spayd, spayd, name)
+            XCTAssertEqual(u.target.bankCode, code, name)
+            XCTAssertEqual(u.envelope, .link, name)
+            XCTAssertEqual(SpaydUri.unwrap(uri), spayd, name)
+        }
+    }
+
     func testToleratedFormsUnwrapToTheSameDescriptor() throws {
         let cases = try XCTUnwrap(vectors()["tolerated"] as? [[String: Any]])
         XCTAssertFalse(cases.isEmpty)
